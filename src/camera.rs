@@ -43,21 +43,18 @@ impl Camera {
         self.position += self.direction() * distance;
     }
 
-    pub fn move_left(&mut self, distance: f32) {
-        let yaw = self.yaw - std::f32::consts::PI * 0.5;
+    pub fn move_right(&mut self, distance: f32) {
+        let yaw = self.yaw + std::f32::consts::PI * 0.5;
         let direction = pitch_yaw_to_direction(0., yaw);
 
-        self.position -= direction * distance;
+        self.position += direction * distance;
     }
 
     pub fn move_up(&mut self, distance: f32) {
-        let pitch = self.yaw - std::f32::consts::PI * 0.5;
-        let direction = pitch_yaw_to_direction(0.0, 0.);
-
-        self.position -= Vector::Z * distance;
+        self.position += Vector::Z * distance;
     }
 
-    fn calc_view_matrix(&self) -> glam::Mat4 {
+    pub fn calc_view_matrix(&self) -> glam::Mat4 {
         self.look_to_rh(pitch_yaw_to_direction(self.pitch, self.yaw), Vector::Z)
     }
 }
