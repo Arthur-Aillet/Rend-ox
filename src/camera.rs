@@ -44,7 +44,7 @@ impl Camera {
     }
 
     pub fn move_right(&mut self, distance: f32) {
-        let yaw = self.yaw + std::f32::consts::PI * 0.5;
+        let yaw = self.yaw - std::f32::consts::PI * 0.5;
         let direction = pitch_yaw_to_direction(0., yaw);
 
         self.position += direction * distance;
