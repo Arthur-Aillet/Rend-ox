@@ -1,4 +1,4 @@
 pub mod model;
 pub mod error;
 pub mod camera;
-pub mod obj_parser;
+pub mod obj;

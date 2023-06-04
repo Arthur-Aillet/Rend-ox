@@ -1,40 +1,14 @@
 mod solver;
+mod parser;
+mod mesh;
 
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader};
 use glam::Vec3A;
-use crate::obj_parser::solver::solve_indices;
+use parser::Triangle;
+pub use mesh::*;
 
-#[derive(Clone, Debug)]
-pub struct Triangle {
-    points: [usize; 3],
-    normals: Option<[usize; 3]>,
-    calculated_normal: usize,
-    textures: Option<[usize; 3]>,
-}
-
-impl Triangle {
-    fn normal_from_points(point_a: Vec3A, point_b: Vec3A, point_c: Vec3A) -> Vec3A {
-        (point_a - point_b).cross(point_a - point_c).normalize().into()
-    }
-
-    fn new() -> Triangle {
-        Triangle {
-            points: [0; 3],
-            normals: Some([3;3]),
-            calculated_normal: 0,
-            textures: None,
-        }
-    }
-}
-
-pub struct Mesh {
-    triangles : Vec<Triangle>,
-    normals : Vec<Vec3A>,
-    calculated : Vec<Vec3A>,
-    vertices : Vertices,
-    uvs : Vertices,
-}
+use crate::obj::solver::solve_indices;
 
 pub type Vertices = Vec<Vec3A>;
 pub type Indices = Vec<u16>;
