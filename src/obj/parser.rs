@@ -6,7 +6,7 @@ use std::io::{BufRead, BufReader};
 use super::Mesh;
 
 #[derive(Clone, Debug)]
-pub struct Triangle {
+pub(crate) struct Triangle {
     pub(crate) points: [usize; 3],
     pub(crate) normals: Option<[usize; 3]>,
     pub(crate) calculated_normal: usize,
