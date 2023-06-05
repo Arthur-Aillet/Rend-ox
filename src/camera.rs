@@ -6,13 +6,13 @@ pub struct Camera {
     pub yaw: f32,
 }
 
-    fn pitch_yaw_to_direction(pitch: f32, yaw: f32) -> Vector {
-        let xz_unit_len = pitch.cos();
-        let x = - xz_unit_len * yaw.cos();
-        let y = - xz_unit_len * (yaw).sin();
-        let z = pitch.sin();
-        Vector::new(x, y, z)
-    }
+fn pitch_yaw_to_direction(pitch: f32, yaw: f32) -> Vector {
+    let xz_unit_len = pitch.cos();
+    let x = -xz_unit_len * yaw.cos();
+    let y = -xz_unit_len * (yaw).sin();
+    let z = pitch.sin();
+    Vector::new(x, y, z)
+}
 
 impl Camera {
     pub fn new() -> Camera {
@@ -35,7 +35,12 @@ impl Camera {
             glam::vec4(side.x, local_up.x, -front.x, 0.0),
             glam::vec4(side.y, local_up.y, -front.y, 0.0),
             glam::vec4(side.z, local_up.z, -front.z, 0.0),
-            glam::vec4(-self.position.dot(side), -self.position.dot(local_up), self.position.dot(front), 1.0),
+            glam::vec4(
+                -self.position.dot(side),
+                -self.position.dot(local_up),
+                self.position.dot(front),
+                1.0,
+            ),
         )
     }
 

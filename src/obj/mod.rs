@@ -1,12 +1,12 @@
-mod solver;
-mod parser;
 mod mesh;
+mod parser;
+mod solver;
 
+use glam::Vec3A;
+pub use mesh::*;
+use parser::Triangle;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader};
-use glam::Vec3A;
-use parser::Triangle;
-pub use mesh::*;
 
 use crate::obj::solver::solve_indices;
 
@@ -16,26 +16,31 @@ pub type Normals = Vec<Vec3A>;
 
 impl Mesh {
     pub fn as_buffers(&mut self) -> (Indices, Vertices, Vertices, Normals) {
-        let (vp, uv, nm, faces) = solve_indices(&self.vertices, &self.uvs, &self.normals, &self.triangles);
+        let (vp, uv, nm, faces) =
+            solve_indices(&self.vertices, &self.uvs, &self.normals, &self.triangles);
         (faces.iter().map(|x| *x as u16).collect(), vp, uv, nm)
     }
 
-    fn parse_face_point(&self, point : &str) -> Option<(usize, Option<usize>, Option<usize>)> {
+    fn parse_face_point(&self, point: &str) -> Option<(usize, Option<usize>, Option<usize>)> {
         let iter = &mut point.split('/');
-        let mut position = 0;
-        let mut normal: Option<usize> = None;
-        let mut texture: Option<usize> = None;
+        let position: usize;
+        let normal: Option<usize>;
+        let texture: Option<usize>;
 
         if let Some(str) = iter.next() {
             match str.parse::<usize>() {
                 Ok(x) => {
                     if self.vertices.len() >= x && x > 0 {
                         position = x - 1
-                    } else { return None }
+                    } else {
+                        return None;
+                    }
                 }
-                Err(_) => { return None }
+                Err(_) => return None,
             };
-        } else { return None }
+        } else {
+            return None;
+        }
 
         if let Some(str) = iter.next() {
             if str.is_empty() {
@@ -45,12 +50,16 @@ impl Mesh {
                     Ok(x) => {
                         if self.uvs.len() >= x && x > 0 {
                             texture = Some(x - 1);
-                        } else { return None }
+                        } else {
+                            return None;
+                        }
                     }
-                    Err(_) => { return None }
+                    Err(_) => return None,
                 }
             }
-        } else { return None }
+        } else {
+            return None;
+        }
 
         if let Some(str) = iter.next() {
             if str.is_empty() {
@@ -60,28 +69,36 @@ impl Mesh {
                     Ok(x) => {
                         if self.normals.len() >= x && x > 0 {
                             normal = Some(x - 1);
-                        } else { return None }
+                        } else {
+                            return None;
+                        }
                     }
-                    Err(_) => { return None }
+                    Err(_) => return None,
                 }
             }
-        } else { return None }
+        } else {
+            return None;
+        }
         Some((position, texture, normal))
     }
 
     fn normal_from_indexes(&self, triangle: &Triangle) -> Vec3A {
-        Triangle::normal_from_points(self.vertices[triangle.points[0]], self.vertices[triangle.points[1]], self.vertices[triangle.points[2]])
+        Triangle::normal_from_points(
+            self.vertices[triangle.points[0]],
+            self.vertices[triangle.points[1]],
+            self.vertices[triangle.points[2]],
+        )
     }
 
     fn get_second_face(&mut self, fst_triangle: &Triangle, last_point: &str) -> Option<Triangle> {
         let mut points: [usize; 3] = [fst_triangle.points[1], fst_triangle.points[2], 0];
         let mut textures = match fst_triangle.textures {
-            Some(tex ) => Some([tex[1], tex[2], 0]),
-            None => None
+            Some(tex) => Some([tex[1], tex[2], 0]),
+            None => None,
         };
         let mut normals = match fst_triangle.textures {
-            Some(nor ) => Some([nor[1], nor[2], 0]),
-            None => None
+            Some(nor) => Some([nor[1], nor[2], 0]),
+            None => None,
         };
 
         if let Some(indexes) = self.parse_face_point(last_point) {
@@ -93,7 +110,7 @@ impl Mesh {
                         point_texture[2] = index;
                     }
                 }
-                None => { textures = None }
+                None => textures = None,
             }
             match indexes.2 {
                 Some(index) => {
@@ -101,9 +118,11 @@ impl Mesh {
                         point_normal[2] = index;
                     }
                 }
-                None => { normals = None }
+                None => normals = None,
             }
-        } else { return None }
+        } else {
+            return None;
+        }
         let calculated_normal = self.calculated.len();
         let snd_triangle = Triangle {
             points,
@@ -111,16 +130,17 @@ impl Mesh {
             calculated_normal,
             textures,
         };
-        self.calculated.push(self.normal_from_indexes(&snd_triangle));
+        self.calculated
+            .push(self.normal_from_indexes(&snd_triangle));
         Some(snd_triangle)
     }
 
-    fn parse_face(&mut self, line : String) -> bool {
-        let points: Vec<&str> = line.split_ascii_whitespace()
-            .skip(1)
-            .collect();
+    fn parse_face(&mut self, line: String) -> bool {
+        let points: Vec<&str> = line.split_ascii_whitespace().skip(1).collect();
         let len = points.len();
-        if len < 3 || len > 4 { return false }
+        if len < 3 || len > 4 {
+            return false;
+        }
         let mut fst_triangle = Triangle::new();
         fst_triangle.normals = Some([0; 3]);
         fst_triangle.textures = Some([0; 3]);
@@ -130,25 +150,30 @@ impl Mesh {
 
                 if let Some(ref mut texture) = fst_triangle.textures {
                     match point.1 {
-                        Some(valid_point) => { texture[i] = valid_point }
-                        None => {fst_triangle.textures = None}
+                        Some(valid_point) => texture[i] = valid_point,
+                        None => fst_triangle.textures = None,
                     }
                 }
                 if let Some(ref mut normal) = fst_triangle.normals {
                     match point.2 {
-                        Some(valid_point) => { normal[i] = valid_point }
-                        None => {fst_triangle.normals = None}
+                        Some(valid_point) => normal[i] = valid_point,
+                        None => fst_triangle.normals = None,
                     }
                 }
-            } else { return false }
+            } else {
+                return false;
+            }
         }
         fst_triangle.calculated_normal = self.calculated.len();
 
-        self.calculated.push(self.normal_from_indexes(&fst_triangle));
+        self.calculated
+            .push(self.normal_from_indexes(&fst_triangle));
         if len == 4 {
             if let Some(snd_face) = self.get_second_face(&fst_triangle, points[3]) {
                 self.triangles.push(snd_face);
-            } else { return false }
+            } else {
+                return false;
+            }
         }
         self.triangles.push(fst_triangle);
         true
@@ -163,8 +188,12 @@ impl Mesh {
             if let Some(point) = iter.next() {
                 if let Ok(point) = point.parse::<f32>() {
                     new_vertex[i] = point as f32;
-                } else { return None };
-            } else { return None }
+                } else {
+                    return None;
+                };
+            } else {
+                return None;
+            }
         }
         Some(new_vertex)
     }
@@ -178,14 +207,16 @@ impl Mesh {
             if let Some(point) = iter.next() {
                 if let Ok(point) = point.parse::<f32>() {
                     new_vertex[i] = point as f32;
-                } else { return None };
+                } else {
+                    return None;
+                };
             }
         }
         Some(new_vertex)
     }
 
     fn parse_normal(&mut self, line: String) -> Option<Vec3A> {
-        let mut new_normal_asv = self.parse_vertex(line);
+        let new_normal_asv = self.parse_vertex(line);
         if let Some(normal_vertex) = new_normal_asv {
             Some(Vec3A::from(normal_vertex.normalize()))
         } else {
@@ -211,12 +242,24 @@ impl Mesh {
                 match option_line {
                     Err(why) => panic!("{:?}", why),
                     Ok(line) => match line {
-                        s if s.chars().all(|x| x.is_ascii_whitespace()) => { continue; }
-                        s if s.starts_with('#') => { continue; }
-                        s if s.starts_with("o ") => { continue; }
-                        s if s.starts_with("s ") => { continue; }
-                        s if s.starts_with("usemtl ") => { continue; }
-                        s if s.starts_with("mtllib ") => { continue; }
+                        s if s.chars().all(|x| x.is_ascii_whitespace()) => {
+                            continue;
+                        }
+                        s if s.starts_with('#') => {
+                            continue;
+                        }
+                        s if s.starts_with("o ") => {
+                            continue;
+                        }
+                        s if s.starts_with("s ") => {
+                            continue;
+                        }
+                        s if s.starts_with("usemtl ") => {
+                            continue;
+                        }
+                        s if s.starts_with("mtllib ") => {
+                            continue;
+                        }
                         s if s.starts_with("v ") => {
                             if let Some(vertex) = self.parse_vertex(s) {
                                 self.vertices.push(vertex);
@@ -251,7 +294,7 @@ impl Mesh {
                             println!("Invalid \"{file_name}\" mesh file!, \"{other}\" string not supported");
                             return false;
                         }
-                    }
+                    },
                 }
             }
         } else {
