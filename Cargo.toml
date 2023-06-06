@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 glam = "0.24.0"
 bytemuck = "1.13.1"
+nannou = "0.18.1" # While waiting for real wgpu support
