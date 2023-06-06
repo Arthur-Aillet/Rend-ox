@@ -6,7 +6,7 @@ use crate::uniform::{create_uniform_buffer, Uniforms};
 
 pub struct Model {
     pub camera_is_active: bool,
-    pub camera: rend_ox::camera::Camera,
+    pub camera: crate::camera::Camera,
     pub _mesh: Mesh,
     pub buffers: (Indices, Vertices, Vertices, Normals),
 }
