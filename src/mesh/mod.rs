@@ -1,8 +1,10 @@
 mod mesh;
-mod parser;
+mod obj_parser;
+mod smd_parser;
 mod solver;
 
 use glam::Vec3A;
+use glam::Mat4;
 
 pub use mesh::*;
 

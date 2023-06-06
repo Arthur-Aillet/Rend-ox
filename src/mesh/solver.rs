@@ -1,4 +1,4 @@
-use crate::obj::parser::Triangle;
+use crate::mesh::obj_parser::Triangle;
 use glam::Vec3A;
 
 #[derive(Clone)]

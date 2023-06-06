@@ -3,33 +3,8 @@ use glam::Vec3A;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader};
 
+use super::Triangle;
 use super::Mesh;
-
-#[derive(Clone, Debug)]
-pub(crate) struct Triangle {
-    pub(crate) points: [usize; 3],
-    pub(crate) normals: Option<[usize; 3]>,
-    pub(crate) calculated_normal: usize,
-    pub(crate) textures: Option<[usize; 3]>,
-}
-
-impl Triangle {
-    pub(crate) fn normal_from_points(point_a: Vec3A, point_b: Vec3A, point_c: Vec3A) -> Vec3A {
-        (point_a - point_b)
-            .cross(point_a - point_c)
-            .normalize()
-            .into()
-    }
-
-    pub(crate) fn new() -> Triangle {
-        Triangle {
-            points: [0; 3],
-            normals: Some([3; 3]),
-            calculated_normal: 0,
-            textures: None,
-        }
-    }
-}
 
 impl Mesh {
     fn parse_face_point(&self, point: &str) -> Option<(usize, Option<usize>, Option<usize>)> {
@@ -227,7 +202,7 @@ impl Mesh {
         }
     }
 
-    pub fn parse_obj(&mut self, file_name: &str) -> bool {
+    pub fn load_obj(&mut self, file_name: &str) -> bool {
         let file = OpenOptions::new().read(true).open(file_name);
 
         if let Ok(obj) = file {
