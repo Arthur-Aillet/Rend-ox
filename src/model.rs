@@ -13,15 +13,8 @@ pub struct Model {
 
 fn create_model() -> Result<Model, Box<dyn std::error::Error>> {
     let camera_is_active = true;
-    let device = window.device();
-    let format = Frame::TEXTURE_FORMAT;
-    let msaa_samples = window.msaa_samples();
     let window_size: glam::UVec2 = window.inner_size_pixels().into();
 
-    let vs_desc = wgpu::include_wgsl!("shaders/vs.wgsl");
-    let fs_desc = wgpu::include_wgsl!("shaders/fs.wgsl");
-    let vs_mod = device.create_shader_module(&vs_desc);
-    let fs_mod = device.create_shader_module(&fs_desc);
 
     let mut mesh: Mesh = Mesh::new();
     if !mesh.parse_obj("./.objs/bat.obj") {

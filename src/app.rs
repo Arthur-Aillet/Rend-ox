@@ -3,7 +3,7 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 use crate::graphics::Graphics;
 use crate::model::Model;
-use crate::window::State;
+use crate::window::{State};
 use pollster;
 
 pub struct App {
@@ -12,14 +12,19 @@ pub struct App {
     model : Model,
     state : State,
     window : Window,
+    update : Option<fn(&App)>
 }
 
 impl App {
     pub fn run() {
-        pollster::block_on(async_run());
+        pollster::block_on(async_run())
     }
 
-    pub async fn async_run() {
+    fn update(&mut self, update : fn(&App)) {
+        self.update = Some(update);
+    }
+
+    async fn async_run() {
         event_loop.run(move |event, _, control_flow| match event {
             Event::WindowEvent {
                 ref event,
@@ -50,19 +55,29 @@ impl App {
         });
     }
 
-    pub async fn new(graphics : Graphics, model : Model) -> App {
+    pub async fn new(create_model : fn()->Model) -> Result<App, Box<dyn std::error::Error>> {
         let event_loop = EventLoop::new();
         let window = WindowBuilder::new()
-            .build(&event_loop)
-            .unwrap();
-        let mut state = State::new(&window).await.unwrap();
-        App {
+            .build(&event_loop);
+        let window = match window {
+            Ok(model) => model,
+            Err(err) => {
+                eprintln!("Failed to create Window: {err}");
+                std::process::exit(84)
+            }
+        };
+        let graphics = Graphics::new(&window);
+        let model = create_model();
+        let state = State::new(&window).await;
+
+        Ok(App {
             event_loop,
             graphics,
             model,
             window,
             state,
-        }
+            update : None,
+        })
     }
 }
 

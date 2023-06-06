@@ -12,6 +12,13 @@ pub(crate) struct State {
 }
 
 impl State {
+    pub fn window(&self) -> &window {
+        &self.window
+    }
+
+    pub(crate) fn input(&self) -> bool {
+        false
+    }
     // Creating some of the wgpu types requires async code
     pub(crate) async fn new(window: &Window) -> Self {
         let size = window.inner_size();
