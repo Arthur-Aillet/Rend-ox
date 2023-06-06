@@ -1,5 +1,9 @@
 use glam::{UVec2, Vec3};
 use nannou;
+use nannou::wgpu;
+use nannou::wgpu::util::DeviceExt;
+
+use crate::camera::Camera;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -9,11 +13,43 @@ pub struct Uniforms {
     proj: glam::Mat4,
 }
 
-pub(crate) fn uniforms_as_bytes(uniforms: &Uniforms) -> &[u8] {
-    unsafe { nannou::wgpu::bytes::from(uniforms) }
-}
-
 impl Uniforms {
+    fn as_bytes(&self) -> &[u8] {
+        unsafe { nannou::wgpu::bytes::from(self) }
+    }
+
+    pub(crate) fn new_as_buffer(
+        window_size: glam::UVec2,
+        camera: &Camera,
+        device: &nannou::wgpu::Device,
+    ) -> wgpu::Buffer {
+        let uniforms = Uniforms::new(window_size, camera.calc_view_matrix());
+        let uniforms_bytes = uniforms.as_bytes();
+        let usage = wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST;
+
+        device.create_buffer_init(&wgpu::BufferInitDescriptor {
+            label: Some("Uniform buffer"),
+            contents: uniforms_bytes,
+            usage,
+        })
+    }
+
+    pub(crate) fn new_as_buffer_view(
+        window_size: glam::UVec2,
+        camera: &Camera,
+        device: &nannou::wgpu::Device,
+    ) -> wgpu::Buffer {
+        let uniforms = Uniforms::new(window_size, camera.calc_view_matrix().into());
+        let uniforms_bytes = uniforms.as_bytes();
+        let usage = wgpu::BufferUsages::COPY_SRC;
+
+        device.create_buffer_init(&wgpu::BufferInitDescriptor {
+            label: None,
+            contents: uniforms_bytes,
+            usage,
+        })
+    }
+
     pub fn new(size: UVec2, view: glam::Mat4) -> Uniforms {
         let rotation = glam::Mat4::from_rotation_y(0f32);
         let aspect_ratio = size.x as f32 / size.y as f32;

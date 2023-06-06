@@ -2,14 +2,14 @@ use std::cell::RefCell;
 
 use nannou;
 use nannou::wgpu;
-use nannou::Frame;
 use nannou::wgpu::util::DeviceExt;
+use nannou::Frame;
 
-use crate::obj::{Indices, Mesh, Normals, Vertices};
-use crate::graphics::Graphics;
-use crate::process::view;
-use crate::uniforms::{Uniforms, uniforms_as_bytes};
 use crate::camera_controller::key_pressed;
+use crate::graphics::Graphics;
+use crate::obj::{Indices, Mesh, Normals, Vertices};
+use crate::process::view;
+use crate::uniforms::Uniforms;
 
 pub struct Model {
     pub camera_is_active: bool,
@@ -190,15 +190,7 @@ fn create_model(app: &nannou::App) -> Result<Model, Box<dyn std::error::Error>> 
 
     let depth_texture_view = depth_texture.view().build();
 
-    let uniforms = Uniforms::new(window_size, camera.calc_view_matrix());
-    let uniforms_bytes = uniforms_as_bytes(&uniforms);
-    let usage = wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST;
-    let uniform_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
-        label: None,
-        contents: uniforms_bytes,
-        usage,
-    });
-
+    let uniform_buffer = Uniforms::new_as_buffer(window_size, &camera, device);
     let bind_group_layout = create_bind_group_layout(device);
     let bind_group = create_bind_group(device, &bind_group_layout, &uniform_buffer);
     let pipeline_layout = create_pipeline_layout(device, &bind_group_layout);

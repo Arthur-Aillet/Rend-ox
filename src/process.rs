@@ -1,12 +1,11 @@
+use crate::camera_controller::move_camera;
 use crate::model::Model;
 use crate::uniforms::Uniforms;
-use crate::uniforms::uniforms_as_bytes;
-use nannou::event::{Update, Event};
-use nannou::winit;
+
+use nannou::event::{Event, Update};
 use nannou::wgpu;
-use nannou::wgpu::util::DeviceExt;
+use nannou::winit;
 use nannou::Frame;
-use crate::camera_controller::move_camera;
 
 pub fn update(app: &nannou::App, model: &mut Model, update: Update) {
     move_camera(app, model, &update);
@@ -61,18 +60,11 @@ pub fn view(_app: &nannou::App, model: &Model, frame: Frame) {
     }
 
     // Update the uniforms
-    let uniforms = Uniforms::new(frame_size.into(), model.camera.calc_view_matrix().into());
+    let uniform_buffer = Uniforms::new_as_buffer_view(frame_size.into(), &model.camera, device);
     let uniforms_size = std::mem::size_of::<Uniforms>() as wgpu::BufferAddress;
-    let uniforms_bytes = uniforms_as_bytes(&uniforms);
-    let usage = wgpu::BufferUsages::COPY_SRC;
-    let new_uniform_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
-        label: None,
-        contents: uniforms_bytes,
-        usage,
-    });
 
     let mut encoder = frame.command_encoder();
-    encoder.copy_buffer_to_buffer(&new_uniform_buffer, 0, &g.uniform_buffer, 0, uniforms_size);
+    encoder.copy_buffer_to_buffer(&uniform_buffer, 0, &g.uniform_buffer, 0, uniforms_size);
     let mut render_pass = wgpu::RenderPassBuilder::new()
         .color_attachment(frame.texture_view(), |color| color)
         // We'll use a depth texture to assist with the order of rendering fragments based on depth.
