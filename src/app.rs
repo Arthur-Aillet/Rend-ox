@@ -66,9 +66,9 @@ impl App {
                 std::process::exit(84)
             }
         };
-        let graphics = Graphics::new(&window);
-        let model = create_model();
         let state = State::new(&window).await;
+        let graphics = Graphics::new(&state.device);
+        let model = create_model();
 
         Ok(App {
             event_loop,

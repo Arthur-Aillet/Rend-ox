@@ -3,12 +3,12 @@ use winit;
 use winit::window::{Window, WindowBuilder};
 
 pub(crate) struct State {
-    window: Refcell<winit::window::Window>,
-    surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
-    size: winit::dpi::PhysicalSize<u32>,
+    pub(crate) window: Refcell<winit::window::Window>,
+    pub(crate) surface: wgpu::Surface,
+    pub(crate) device: wgpu::Device,
+    pub(crate) queue: wgpu::Queue,
+    pub(crate) config: wgpu::SurfaceConfiguration,
+    pub(crate) size: winit::dpi::PhysicalSize<u32>,
 }
 
 impl State {

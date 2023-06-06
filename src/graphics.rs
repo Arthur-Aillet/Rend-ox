@@ -1,6 +1,7 @@
 use winit::window::Window;
 use crate::uniform::create_uniform_buffer;
 use wgpu;
+use wgpu::Device;
 
 pub struct Graphics {
     pub(crate) vertex_buffer: wgpu::Buffer,
@@ -100,8 +101,7 @@ pub(crate) fn create_3d_render_pipeline (
     }
 
 impl Graphics {
-    pub fn new(window : &Window) -> Graphics {
-        let device = window.device();
+    pub fn new(device : &Device) -> Graphics {
         let sample_count = 4;
         /*
         let vs_desc = wgpu::include_wgsl!("shaders/vs.wgsl");
