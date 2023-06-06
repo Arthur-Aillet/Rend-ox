@@ -137,10 +137,14 @@ fn create_model(app: &nannou::App) -> Result<Model, Box<dyn std::error::Error>> 
     let msaa_samples = window.msaa_samples();
     let window_size: glam::UVec2 = window.inner_size_pixels().into();
 
-    let vs_desc = wgpu::include_wgsl!("../shaders/vs.wgsl");
-    let fs_desc = wgpu::include_wgsl!("../shaders/fs.wgsl");
-    let vs_mod = device.create_shader_module(&vs_desc);
-    let fs_mod = device.create_shader_module(&fs_desc);
+    let vs_mod = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        label: Some("Vertex"),
+        source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/vs.wgsl").into()),
+    });
+    let fs_mod = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        label: Some("Fragment"),
+        source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/fs.wgsl").into()),
+    });
 
     let mut mesh: Mesh = Mesh::new();
     if !mesh.parse_obj("./.objs/bat.obj") {
@@ -156,27 +160,25 @@ fn create_model(app: &nannou::App) -> Result<Model, Box<dyn std::error::Error>> 
     let uvs_bytes = vertices_as_bytes_copy(&buffers.2);
     let normals_bytes = vertices_as_bytes_copy(&buffers.3);
 
-    let vertex_usage = wgpu::BufferUsages::VERTEX;
-    let index_usage = wgpu::BufferUsages::INDEX;
+    let index_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
+        label: None,
+        contents: &*indices_bytes,
+        usage: wgpu::BufferUsages::INDEX,
+    });
     let vertex_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
         label: None,
         contents: &*vertices_bytes,
-        usage: vertex_usage,
+        usage: wgpu::BufferUsages::VERTEX,
     });
     let uv_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
         label: None,
         contents: &*uvs_bytes,
-        usage: vertex_usage,
+        usage: wgpu::BufferUsages::VERTEX,
     });
     let normal_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
         label: None,
         contents: &*normals_bytes,
-        usage: vertex_usage,
-    });
-    let index_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
-        label: None,
-        contents: &*indices_bytes,
-        usage: index_usage,
+        usage: wgpu::BufferUsages::VERTEX,
     });
 
     let camera = crate::camera::Camera::new();
