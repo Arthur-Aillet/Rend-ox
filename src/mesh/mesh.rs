@@ -3,11 +3,14 @@ use crate::mesh::{Indices, Normals, Vertices};
 
 use glam::Vec3A;
 use glam::Mat4;
+use crate::mesh::obj_parser::OBJMesh;
 
+#[derive(Clone, Debug, PartialOrd)]
 pub struct Bone {
     pub(crate) idx: u32,
-    pub(crate) mat: Mat4,
-    pub(crate) parent: u32,
+    pub(crate) pose: Mat4,
+    // pub(crate) rest: Mat4,
+    pub(crate) parent: i32,
 }
 
 #[derive(Clone, Debug)]
@@ -16,6 +19,7 @@ pub(crate) struct Triangle {
     pub(crate) normals: Option<[usize; 3]>,
     pub(crate) calculated_normal: usize,
     pub(crate) textures: Option<[usize; 3]>,
+    pub(crate) group: Option<u32>,
 }
 
 impl Triangle {
@@ -32,37 +36,54 @@ impl Triangle {
             normals: Some([3; 3]),
             calculated_normal: 0,
             textures: None,
+            group: None,
         }
     }
 }
 
 pub struct Mesh {
-    pub(crate) triangles: Vec<Triangle>,
-    pub(crate) normals: Normals,
-    pub(crate) calculated: Normals,
+    pub(crate) faces: Indices,
     pub(crate) vertices: Vertices,
+    pub(crate) normals: Normals,
     pub(crate) uvs: Vertices,
-    pub(crate) weights: vec<vec<(u32, f32)>>,
-    pub(crate) bones: vec<Bone>,
+    pub(crate) weights: Vec<Vec<(u32, f32)>>,
+    pub(crate) materials: Vec<Option<String>>,
+    pub(crate) groups: Vec<(u32, String)>,
+    pub(crate) bones: Vec<Bone>,
 }
 
 impl Mesh {
     pub fn new() -> Mesh {
         Mesh {
-            triangles: vec![],
-            normals: vec![],
-            calculated: vec![],
+            faces: vec![],
             vertices: vec![],
             uvs: vec![],
+            normals: vec![],
+            materials: vec![],
+            groups: vec![],
             weights: vec![],
             bones: vec![],
         }
     }
 
-    pub fn as_buffers(&mut self) -> (Indices, Vertices, Vertices, Normals) {
-        let (vp, uv, nm, faces) =
-            solve_indices(&self.vertices, &self.uvs, &self.normals, &self.triangles);
-        (faces.iter().map(|x| *x as u16).collect(), vp, uv, nm)
+    pub fn buffers(&self) -> (&Indices, &Vertices, &Vertices, &Normals) {
+        (&self.faces, &self.vertices, &self.uvs, &self.normals)
+    }
+
+    pub fn from_obj( file_name: &str) -> Mesh {
+        let mut obj : OBJMesh;
+        obj.load_obj(file_name);
+        let (faces, vertices, uvs, normals) = obj.as_buffers();
+        Mesh {
+            faces,
+            vertices,
+            uvs,
+            normals,
+            materials: vec![],
+            groups: vec![],
+            weights: vec![],
+            bones: vec![],
+        }
     }
 
     pub(crate) fn normal_from_indexes(&self, triangle: &Triangle) -> Vec3A {

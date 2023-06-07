@@ -3,10 +3,95 @@ use glam::Vec3A;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader};
 
-use super::Triangle;
+use super::{Indices, Triangle, Normals, Vertices, Bone};
 use super::Mesh;
+use super::solver::solve_indices;
 
-impl Mesh {
+pub struct OBJMesh {
+    pub(crate) triangles: Vec<Triangle>,
+    pub(crate) normals: Normals,
+    pub(crate) calculated: Normals,
+    pub(crate) vertices: Vertices,
+    pub(crate) uvs: Vertices,
+    pub(crate) materials: Vec<Option<String>>,
+}
+
+impl OBJMesh {
+    pub fn as_buffers(&self) -> (Indices, Vertices, Vertices, Normals) {
+        let (vp, uv, nm, faces) =
+            solve_indices(&self.vertices, &self.uvs, &self.normals, &self.triangles);
+        (faces.iter().map(|x| *x as u16).collect(), vp, uv, nm)
+    }
+
+    pub fn load_obj(&mut self, file_name: &str) -> bool {
+        let file = OpenOptions::new().read(true).open(file_name);
+
+        if let Ok(obj) = file {
+            for option_line in BufReader::new(obj).lines() {
+                match option_line {
+                    Err(why) => panic!("{:?}", why),
+                    Ok(line) => match line {
+                        s if s.chars().all(|x| x.is_ascii_whitespace()) => {
+                            continue;
+                        }
+                        s if s.starts_with('#') => {
+                            continue;
+                        }
+                        s if s.starts_with("o ") => {
+                            continue;
+                        }
+                        s if s.starts_with("s ") => {
+                            continue;
+                        }
+                        s if s.starts_with("usemtl ") => {
+                            continue;
+                        }
+                        s if s.starts_with("mtllib ") => {
+                            continue;
+                        }
+                        s if s.starts_with("v ") => {
+                            if let Some(vertex) = self.parse_vertex(s) {
+                                self.vertices.push(vertex);
+                            } else {
+                                println!("Invalid vertexes in \"{}\" !", file_name);
+                                return false;
+                            }
+                        }
+                        s if s.starts_with("vt ") => {
+                            if let Some(vertex) = self.parse_uvw(s) {
+                                self.uvs.push(vertex);
+                            } else {
+                                println!("Invalid uv in \"{}\" !", file_name);
+                                return false;
+                            }
+                        }
+                        s if s.starts_with("vn ") => {
+                            if let Some(normal) = self.parse_normal(s) {
+                                self.normals.push(normal);
+                            } else {
+                                println!("Invalid normal in \"{}\" !", file_name);
+                                return false;
+                            }
+                        }
+                        s if s.starts_with("f ") => {
+                            if !self.parse_face(s) {
+                                println!("Invalid face in \"{}\" !", file_name);
+                                return false;
+                            }
+                        }
+                        other => {
+                            println!("Invalid \"{file_name}\" mesh file!, \"{other}\" string not supported");
+                            return false;
+                        }
+                    },
+                }
+            }
+        } else {
+            println!("Cant open \"{}\" mesh file!", file_name);
+        }
+        true
+    }
+
     fn parse_face_point(&self, point: &str) -> Option<(usize, Option<usize>, Option<usize>)> {
         let iter = &mut point.split('/');
         let position: usize;
@@ -107,6 +192,7 @@ impl Mesh {
             normals,
             calculated_normal,
             textures,
+            group : None,
         };
         self.calculated
             .push(self.normal_from_indexes(&snd_triangle));
@@ -200,74 +286,5 @@ impl Mesh {
         } else {
             None
         }
-    }
-
-    pub fn load_obj(&mut self, file_name: &str) -> bool {
-        let file = OpenOptions::new().read(true).open(file_name);
-
-        if let Ok(obj) = file {
-            for option_line in BufReader::new(obj).lines() {
-                match option_line {
-                    Err(why) => panic!("{:?}", why),
-                    Ok(line) => match line {
-                        s if s.chars().all(|x| x.is_ascii_whitespace()) => {
-                            continue;
-                        }
-                        s if s.starts_with('#') => {
-                            continue;
-                        }
-                        s if s.starts_with("o ") => {
-                            continue;
-                        }
-                        s if s.starts_with("s ") => {
-                            continue;
-                        }
-                        s if s.starts_with("usemtl ") => {
-                            continue;
-                        }
-                        s if s.starts_with("mtllib ") => {
-                            continue;
-                        }
-                        s if s.starts_with("v ") => {
-                            if let Some(vertex) = self.parse_vertex(s) {
-                                self.vertices.push(vertex);
-                            } else {
-                                println!("Invalid vertexes in \"{}\" !", file_name);
-                                return false;
-                            }
-                        }
-                        s if s.starts_with("vt ") => {
-                            if let Some(vertex) = self.parse_uvw(s) {
-                                self.uvs.push(vertex);
-                            } else {
-                                println!("Invalid uv in \"{}\" !", file_name);
-                                return false;
-                            }
-                        }
-                        s if s.starts_with("vn ") => {
-                            if let Some(normal) = self.parse_normal(s) {
-                                self.normals.push(normal);
-                            } else {
-                                println!("Invalid normal in \"{}\" !", file_name);
-                                return false;
-                            }
-                        }
-                        s if s.starts_with("f ") => {
-                            if !self.parse_face(s) {
-                                println!("Invalid face in \"{}\" !", file_name);
-                                return false;
-                            }
-                        }
-                        other => {
-                            println!("Invalid \"{file_name}\" mesh file!, \"{other}\" string not supported");
-                            return false;
-                        }
-                    },
-                }
-            }
-        } else {
-            println!("Cant open \"{}\" mesh file!", file_name);
-        }
-        true
     }
 }
