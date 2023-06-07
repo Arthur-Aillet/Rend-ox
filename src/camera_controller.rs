@@ -4,7 +4,7 @@ use nannou;
 use nannou::event::{Key, Update};
 use nannou::time::DurationF64;
 
-pub(crate) fn key_pressed(app: &nannou::App, model: &mut Model, key: Key) {
+pub(crate) fn key_pressed<T>(app: &nannou::App, model: &mut Model<T>, key: Key) {
     if let Key::Space = key {
         let window = app.main_window();
         if !model.camera_is_active {
@@ -20,7 +20,7 @@ pub(crate) fn key_pressed(app: &nannou::App, model: &mut Model, key: Key) {
     }
 }
 
-pub fn move_camera(app: &nannou::App, model: &mut Model, update: &Update) {
+pub fn move_camera<T>(app: &nannou::App, model: &mut Model<T>, update: &Update) {
     if model.camera_is_active {
         let velocity = (update.since_last.secs() * model.camera.speed) as f32;
 

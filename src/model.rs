@@ -11,12 +11,13 @@ use crate::obj::{Indices, Mesh, Normals, Vertices};
 use crate::process::view;
 use crate::uniforms::Uniforms;
 
-pub struct Model {
+pub struct Model<T> {
     pub camera_is_active: bool,
     pub graphics: RefCell<Graphics>,
     pub camera: crate::camera::Camera,
     pub _mesh: Mesh,
     pub buffers: (Indices, Vertices, Vertices, Normals),
+    pub user: T,
 }
 
 fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
@@ -88,8 +89,9 @@ fn indices_as_bytes_copy(data: &Vec<u16>) -> Vec<u8> {
     final_bytes
 }
 
-pub fn model(app: &nannou::App) -> Model {
-    match create_model(app) {
+pub fn model<T: 'static>(app: &nannou::App, user : T) -> Model<T> {
+    println!("size : {}", std::mem::size_of::<T>());
+    match create_model(app, user) {
         Ok(model) => model,
         Err(err) => {
             eprintln!("Failed to create Model: {err}");
@@ -98,12 +100,13 @@ pub fn model(app: &nannou::App) -> Model {
     }
 }
 
-fn create_model(app: &nannou::App) -> Result<Model, Box<dyn std::error::Error>> {
+
+fn create_model<T: 'static>(app: &nannou::App, user : T) -> Result<Model<T>, Box<dyn std::error::Error>> {
     let w_id = match app
         .new_window()
         .size(1024, 576)
-        .key_pressed(key_pressed)
-        .view(view)
+        .key_pressed::<Model<T>>(key_pressed)
+        .view::<Model<T>>(view)
         .build()
     {
         Ok(val) => val,
@@ -228,5 +231,6 @@ fn create_model(app: &nannou::App) -> Result<Model, Box<dyn std::error::Error>> 
         camera,
         _mesh: mesh,
         buffers,
+        user,
     })
 }

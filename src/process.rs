@@ -7,11 +7,11 @@ use nannou::wgpu;
 use nannou::winit;
 use nannou::Frame;
 
-pub fn update(app: &nannou::App, model: &mut Model, update: Update) {
+pub fn update<T>(app: &nannou::App, model: &mut Model<T>, update: Update) {
     move_camera(app, model, &update);
 }
 
-pub fn event(_app: &nannou::App, model: &mut Model, event: nannou::Event) {
+pub fn event<T>(_app: &nannou::App, model: &mut Model<T>, event: nannou::Event) {
     if model.camera_is_active {
         if let Event::DeviceEvent(_device_id, event) = event {
             if let winit::event::DeviceEvent::Motion { axis, value } = event {
@@ -41,7 +41,7 @@ pub fn event(_app: &nannou::App, model: &mut Model, event: nannou::Event) {
     }
 }
 
-pub fn view(_app: &nannou::App, model: &Model, frame: Frame) {
+pub fn view<T>(_app: &nannou::App, model: &Model<T>, frame: Frame) {
     let mut g = model.graphics.borrow_mut();
 
     // If the window has changed size, recreate our depth texture to match.
