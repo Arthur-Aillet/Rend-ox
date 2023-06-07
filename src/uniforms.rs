@@ -14,8 +14,20 @@ pub struct Uniforms {
 }
 
 impl Uniforms {
-    fn as_bytes(&self) -> &[u8] {
+    /* fn as_bytes(&self) -> &[u8] {
         unsafe { nannou::wgpu::bytes::from(self) }
+    }*/
+
+    fn as_bytes_copy(&self) -> Vec<u8> {
+        let mut final_bytes: Vec<u8> = vec![];
+        for matrix in [self.world, self.view, self.proj].iter() {
+            for col in 0..4 {
+                for row in 0..4 {
+                    final_bytes.extend(matrix.col(col)[row].to_le_bytes());
+                }
+            }
+        }
+        final_bytes
     }
 
     pub(crate) fn new_as_buffer(
@@ -24,12 +36,12 @@ impl Uniforms {
         device: &nannou::wgpu::Device,
     ) -> wgpu::Buffer {
         let uniforms = Uniforms::new(window_size, camera.calc_view_matrix());
-        let uniforms_bytes = uniforms.as_bytes();
+        let uniforms_bytes = uniforms.as_bytes_copy();
         let usage = wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST;
 
         device.create_buffer_init(&wgpu::BufferInitDescriptor {
             label: Some("Uniform buffer"),
-            contents: uniforms_bytes,
+            contents: &*uniforms_bytes,
             usage,
         })
     }
@@ -40,12 +52,12 @@ impl Uniforms {
         device: &nannou::wgpu::Device,
     ) -> wgpu::Buffer {
         let uniforms = Uniforms::new(window_size, camera.calc_view_matrix().into());
-        let uniforms_bytes = uniforms.as_bytes();
+        let uniforms_bytes = uniforms.as_bytes_copy();
         let usage = wgpu::BufferUsages::COPY_SRC;
 
         device.create_buffer_init(&wgpu::BufferInitDescriptor {
             label: None,
-            contents: uniforms_bytes,
+            contents: &*uniforms_bytes,
             usage,
         })
     }
