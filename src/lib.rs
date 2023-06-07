@@ -8,3 +8,4 @@ pub mod graphics;
 pub mod process;
 
 pub use nannou;
+pub use glam;
