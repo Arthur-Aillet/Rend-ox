@@ -7,7 +7,5 @@ edition = "2021"
 
 [dependencies]
 glam = "0.24.0"
-wgpu = "0.16.1"
 bytemuck = "1.13.1"
-winit = "0.28.6"
-pollster = "0.3.0"
+nannou = "0.18.1" # While waiting for real wgpu support
