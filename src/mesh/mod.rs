@@ -1,6 +1,6 @@
 mod mesh;
 mod obj_parser;
-mod smd_parser;
+// mod smd_parser;
 mod solver;
 
 use glam::Vec3A;

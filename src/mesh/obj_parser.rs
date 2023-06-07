@@ -9,14 +9,25 @@ use super::solver::solve_indices;
 
 pub struct OBJMesh {
     pub(crate) triangles: Vec<Triangle>,
-    pub(crate) normals: Normals,
-    pub(crate) calculated: Normals,
     pub(crate) vertices: Vertices,
     pub(crate) uvs: Vertices,
+    pub(crate) normals: Normals,
+    pub(crate) calculated: Normals,
     pub(crate) materials: Vec<Option<String>>,
 }
 
 impl OBJMesh {
+    pub fn new() -> OBJMesh {
+        OBJMesh {
+            triangles: vec![],
+            vertices: vec![],
+            normals: vec![],
+            calculated: vec![],
+            uvs: vec![],
+            materials: vec![],
+        }
+    }
+
     pub fn as_buffers(&self) -> (Indices, Vertices, Vertices, Normals) {
         let (vp, uv, nm, faces) =
             solve_indices(&self.vertices, &self.uvs, &self.normals, &self.triangles);
@@ -286,5 +297,13 @@ impl OBJMesh {
         } else {
             None
         }
+    }
+
+    fn normal_from_indexes(&self, triangle: &Triangle) -> Vec3A {
+        Triangle::normal_from_points(
+            self.vertices[triangle.points[0]],
+            self.vertices[triangle.points[1]],
+            self.vertices[triangle.points[2]],
+        )
     }
 }

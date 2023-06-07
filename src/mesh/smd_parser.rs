@@ -56,7 +56,7 @@ impl Mesh {
         }
 
         if let Some(word) = iter.next() {
-            name = str(word);
+            name = word.into();
         } else {
             return false;
         }
@@ -118,8 +118,8 @@ impl Mesh {
         true
     }
 
-    fn smd_parse_triangle(&self, &mut tri: &mut Triangle, state : u32, line : String) -> Option<Triangle> {
-        None
+    fn smd_parse_corner(&self, &mut tri: &mut Triangle, state : u32, line : String) -> bool {
+        false
     }
 
     fn smd_load_triangles(&mut self, &file: &File) -> bool {
@@ -218,4 +218,5 @@ for option_line in BufReader::new(obj).lines() {
                     },
                 }
             }
- //*/
+ // /*  */
+ */

@@ -15,8 +15,8 @@ pub struct Model {
     pub camera_is_active: bool,
     pub graphics: RefCell<Graphics>,
     pub camera: crate::camera::Camera,
-    pub _mesh: Mesh,
-    pub buffers: (Indices, Vertices, Vertices, Normals),
+    // pub _mesh: Mesh,
+    // pub buffers: (Indices, Vertices, Vertices, Normals),
 }
 
 fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
@@ -146,19 +146,24 @@ fn create_model(app: &nannou::App) -> Result<Model, Box<dyn std::error::Error>> 
         source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/fs.wgsl").into()),
     });
 
-    let mut mesh: Mesh = Mesh::new();
-    if !mesh.from_obj("./.objs/bat.obj") {
-        return Err(Box::new(crate::error::RendError::new(
-            "Invalid or non supported obj file!",
-        )));
+    let mut index_count = 0 as usize;
+    let mut indices_bytes = vec![];
+    let mut vertices_bytes = vec![];
+    let mut uvs_bytes = vec![];
+    let mut normals_bytes = vec![];
+
+    let ret = Mesh::from_obj("./.objs/bat.obj");
+    match ret {
+        Err(e) => return Err(e),
+        Ok(mesh) => {
+            let buffers = mesh.buffers();
+            index_count = buffers.0.len();
+            indices_bytes = indices_as_bytes_copy(&buffers.0);
+            vertices_bytes = vertices_as_bytes_copy(&buffers.1);
+            uvs_bytes = vertices_as_bytes_copy(&buffers.2);
+            normals_bytes = vertices_as_bytes_copy(&buffers.3);
+        }
     }
-
-    let buffers = mesh.as_buffers();
-
-    let indices_bytes = indices_as_bytes_copy(&buffers.0);
-    let vertices_bytes = vertices_as_bytes_copy(&buffers.1);
-    let uvs_bytes = vertices_as_bytes_copy(&buffers.2);
-    let normals_bytes = vertices_as_bytes_copy(&buffers.3);
 
     let index_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
         label: None,
@@ -207,10 +212,11 @@ fn create_model(app: &nannou::App) -> Result<Model, Box<dyn std::error::Error>> 
     );
 
     let graphics = RefCell::new(Graphics::new(
+        index_count,
+        index_buffer,
         vertex_buffer,
         uv_buffer,
         normal_buffer,
-        index_buffer,
         uniform_buffer,
         depth_texture,
         depth_texture_view,
@@ -226,7 +232,7 @@ fn create_model(app: &nannou::App) -> Result<Model, Box<dyn std::error::Error>> 
         camera_is_active,
         graphics,
         camera,
-        _mesh: mesh,
-        buffers,
+        // _mesh: mesh,
+        // buffers,
     })
 }

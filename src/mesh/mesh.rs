@@ -1,16 +1,31 @@
+use std::cmp::Ordering;
 use crate::mesh::solver::solve_indices;
 use crate::mesh::{Indices, Normals, Vertices};
+use crate::error::RendError;
 
 use glam::Vec3A;
 use glam::Mat4;
 use crate::mesh::obj_parser::OBJMesh;
 
-#[derive(Clone, Debug, PartialOrd)]
+#[derive(Clone, Debug)]
 pub struct Bone {
     pub(crate) idx: u32,
     pub(crate) pose: Mat4,
     // pub(crate) rest: Mat4,
     pub(crate) parent: i32,
+}
+
+impl PartialEq for Bone {
+    fn eq(&self, other: &Self) -> bool {
+        self.idx == other.idx
+    }
+
+}
+
+impl PartialOrd for Bone {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.idx.cmp(&other.idx))
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -70,11 +85,13 @@ impl Mesh {
         (&self.faces, &self.vertices, &self.uvs, &self.normals)
     }
 
-    pub fn from_obj( file_name: &str) -> Mesh {
-        let mut obj : OBJMesh;
-        obj.load_obj(file_name);
+    pub fn from_obj( file_name: &str) -> Result<Mesh, Box<dyn std::error::Error>> {
+        let mut obj = OBJMesh::new();
+        if !obj.load_obj(file_name) {
+            return Err(Box::new(RendError::new("Failed to parse")));
+        }
         let (faces, vertices, uvs, normals) = obj.as_buffers();
-        Mesh {
+        Ok(Mesh {
             faces,
             vertices,
             uvs,
@@ -83,14 +100,6 @@ impl Mesh {
             groups: vec![],
             weights: vec![],
             bones: vec![],
-        }
-    }
-
-    pub(crate) fn normal_from_indexes(&self, triangle: &Triangle) -> Vec3A {
-        Triangle::normal_from_points(
-            self.vertices[triangle.points[0]],
-            self.vertices[triangle.points[1]],
-            self.vertices[triangle.points[2]],
-        )
+        })
     }
 }

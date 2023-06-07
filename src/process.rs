@@ -76,5 +76,5 @@ pub fn view(_app: &nannou::App, model: &Model, frame: Frame) {
     render_pass.set_vertex_buffer(0, g.vertex_buffer.slice(..));
     render_pass.set_vertex_buffer(1, g.uv_buffer.slice(..));
     render_pass.set_vertex_buffer(2, g.normal_buffer.slice(..));
-    render_pass.draw_indexed(0..model.buffers.0.len() as u32, 0, 0..1);
+    render_pass.draw_indexed(0..g.index_count as u32, 0, 0..1);
 }
