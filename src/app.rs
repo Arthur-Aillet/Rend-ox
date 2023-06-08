@@ -1,14 +1,15 @@
 use std::cell::RefCell;
 
+use crate::Vec3;
 use nannou;
 use nannou::wgpu;
 use nannou::Frame;
-use crate::Vec3;
 
 use crate::camera_controller::key_pressed;
 use crate::graphics::Graphics;
 use crate::mesh::Mesh;
 use crate::process::view;
+use crate::process::{event, update};
 use crate::uniforms::Uniforms;
 
 pub struct App<T> {
@@ -18,6 +19,7 @@ pub struct App<T> {
     pub mesh: Mesh,
     // pub buffers: (Indices, Vertices, Vertices, Normals),
     pub user: T,
+    pub user_update: UpdateFn<T>
 }
 
 fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
@@ -89,19 +91,28 @@ pub fn indices_as_bytes_copy(data: &Vec<u16>) -> Vec<u8> {
     final_bytes
 }
 
-pub fn app<T: 'static>(nannou_app: &nannou::App, user : T) -> App<T> {
-    println!("size : {}", std::mem::size_of::<T>());
-    match create_app(nannou_app, user) {
+pub fn launch_rendox_app<T: 'static>(model: RendoxAppFn<T>) {
+    nannou::app(model).event(event).update(update).run();
+}
+
+pub type RendoxAppFn<T> = fn(_: &nannou::App) -> App<T>;
+pub type UpdateFn<T> = fn(_: &nannou::App, _: &mut App<T>, _: crate::nannou::event::Update);
+
+pub fn app<T: 'static>(nannou_app: &nannou::App, user: T, user_update: UpdateFn<T>) -> App<T> {
+    match create_app(nannou_app, user, user_update) {
         Ok(model) => model,
         Err(err) => {
             eprintln!("Failed to create Model: {err}");
-            std::process::exit(84)
+            std::process::exit(84);
         }
     }
 }
 
-
-fn create_app<T: 'static>(nannou_app: &nannou::App, user : T) -> Result<App<T>, Box<dyn std::error::Error>> {
+fn create_app<T: 'static>(
+    nannou_app: &nannou::App,
+    user: T,
+    user_update: UpdateFn<T>
+) -> Result<App<T>, Box<dyn std::error::Error>> {
     let w_id = match nannou_app
         .new_window()
         .size(1024, 576)
@@ -203,6 +214,7 @@ fn create_app<T: 'static>(nannou_app: &nannou::App, user : T) -> Result<App<T>, 
                 mesh,
                 // buffers,
                 user,
+                user_update,
             })
         }
     }

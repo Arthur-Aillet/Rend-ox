@@ -1,5 +1,5 @@
-use crate::camera_controller::move_camera;
 use crate::app::App;
+use crate::camera_controller::move_camera;
 use crate::uniforms::Uniforms;
 
 use nannou::event::{Event, Update};
@@ -9,6 +9,7 @@ use nannou::Frame;
 
 pub fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {
     move_camera(nannou_app, app, &update);
+    (app.user_update)(nannou_app, app, update);
 }
 
 pub fn event<T>(_nannou_app: &nannou::App, app: &mut App<T>, event: nannou::Event) {
@@ -93,9 +94,9 @@ pub fn view<T>(_nannou_app: &nannou::App, app: &App<T>, frame: Frame) {
         }
     }
     // g.render_pass = Some(render_pass);
-//     render_pass.set_index_buffer(g.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-//     render_pass.set_vertex_buffer(0, g.vertex_buffer.slice(..));
-//     render_pass.set_vertex_buffer(1, g.uv_buffer.slice(..));
-//     render_pass.set_vertex_buffer(2, g.normal_buffer.slice(..));
-//     render_pass.draw_indexed(0..g.index_count as u32, 0, 0..1);
+    //     render_pass.set_index_buffer(g.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+    //     render_pass.set_vertex_buffer(0, g.vertex_buffer.slice(..));
+    //     render_pass.set_vertex_buffer(1, g.uv_buffer.slice(..));
+    //     render_pass.set_vertex_buffer(2, g.normal_buffer.slice(..));
+    //     render_pass.draw_indexed(0..g.index_count as u32, 0, 0..1);
 }
