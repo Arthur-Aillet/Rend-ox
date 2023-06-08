@@ -1,5 +1,5 @@
 use super::Triangle;
-use glam::Vec3A;
+use super::Vec3;
 
 #[derive(Clone)]
 struct VertBinding {
@@ -27,14 +27,14 @@ fn binding_find(
 }
 
 pub(crate) fn solve_indices(
-    pos: &Vec<Vec3A>,
-    uvs: &Vec<Vec3A>,
-    normals: &Vec<Vec3A>,
+    pos: &Vec<Vec3>,
+    uvs: &Vec<Vec3>,
+    normals: &Vec<Vec3>,
     faces: &Vec<Triangle>,
-) -> (Vec<Vec3A>, Vec<Vec3A>, Vec<Vec3A>, Vec<usize>) {
-    let mut out_vp: Vec<Vec3A> = Vec::new();
-    let mut out_nm: Vec<Vec3A> = Vec::new();
-    let mut out_uv: Vec<Vec3A> = Vec::new();
+) -> (Vec<Vec3>, Vec<Vec3>, Vec<Vec3>, Vec<usize>) {
+    let mut out_vp: Vec<Vec3> = Vec::new();
+    let mut out_nm: Vec<Vec3> = Vec::new();
+    let mut out_uv: Vec<Vec3> = Vec::new();
     let mut binding: Vec<Vec<VertBinding>> = vec![Vec::new(); pos.len()];
 
     let mut out_faces: Vec<usize> = Vec::new();

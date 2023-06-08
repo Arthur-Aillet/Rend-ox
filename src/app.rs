@@ -2,20 +2,20 @@ use std::cell::RefCell;
 
 use nannou;
 use nannou::wgpu;
-use nannou::wgpu::util::DeviceExt;
 use nannou::Frame;
+use crate::Vec3;
 
 use crate::camera_controller::key_pressed;
 use crate::graphics::Graphics;
-use crate::mesh::{Indices, Mesh, Normals, Vertices};
+use crate::mesh::Mesh;
 use crate::process::view;
 use crate::uniforms::Uniforms;
 
-pub struct Model<T> {
+pub struct App<T> {
     pub camera_is_active: bool,
     pub graphics: RefCell<Graphics>,
     pub camera: crate::camera::Camera,
-    // pub _mesh: Mesh,
+    pub mesh: Mesh,
     // pub buffers: (Indices, Vertices, Vertices, Normals),
     pub user: T,
 }
@@ -70,7 +70,7 @@ fn create_render_pipeline(
         .build(device)
 }
 
-fn vertices_as_bytes_copy(data: &Vec<glam::Vec3A>) -> Vec<u8> {
+pub fn vertices_as_bytes_copy(data: &Vec<Vec3>) -> Vec<u8> {
     let mut final_bytes: Vec<u8> = vec![];
     for elem in data {
         for i in 0..3 {
@@ -80,7 +80,7 @@ fn vertices_as_bytes_copy(data: &Vec<glam::Vec3A>) -> Vec<u8> {
     final_bytes
 }
 
-fn indices_as_bytes_copy(data: &Vec<u16>) -> Vec<u8> {
+pub fn indices_as_bytes_copy(data: &Vec<u16>) -> Vec<u8> {
     let mut final_bytes: Vec<u8> = vec![];
     for elem in data {
         final_bytes.push(*elem as u8);
@@ -89,9 +89,9 @@ fn indices_as_bytes_copy(data: &Vec<u16>) -> Vec<u8> {
     final_bytes
 }
 
-pub fn model<T: 'static>(app: &nannou::App, user : T) -> Model<T> {
+pub fn app<T: 'static>(nannou_app: &nannou::App, user : T) -> App<T> {
     println!("size : {}", std::mem::size_of::<T>());
-    match create_model(app, user) {
+    match create_app(nannou_app, user) {
         Ok(model) => model,
         Err(err) => {
             eprintln!("Failed to create Model: {err}");
@@ -101,12 +101,12 @@ pub fn model<T: 'static>(app: &nannou::App, user : T) -> Model<T> {
 }
 
 
-fn create_model<T: 'static>(app: &nannou::App, user : T) -> Result<Model<T>, Box<dyn std::error::Error>> {
-    let w_id = match app
+fn create_app<T: 'static>(nannou_app: &nannou::App, user : T) -> Result<App<T>, Box<dyn std::error::Error>> {
+    let w_id = match nannou_app
         .new_window()
         .size(1024, 576)
-        .key_pressed::<Model<T>>(key_pressed)
-        .view::<Model<T>>(view)
+        .key_pressed::<App<T>>(key_pressed)
+        .view::<App<T>>(view)
         .build()
     {
         Ok(val) => val,
@@ -117,7 +117,7 @@ fn create_model<T: 'static>(app: &nannou::App, user : T) -> Result<Model<T>, Box
         }
     };
 
-    let window = match app.window(w_id) {
+    let window = match nannou_app.window(w_id) {
         None => {
             return Err(Box::new(crate::error::RendError::new(
                 "Invalid window id found",
@@ -149,46 +149,6 @@ fn create_model<T: 'static>(app: &nannou::App, user : T) -> Result<Model<T>, Box
         source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/fs.wgsl").into()),
     });
 
-    let mut index_count = 0 as usize;
-    let mut indices_bytes = vec![];
-    let mut vertices_bytes = vec![];
-    let mut uvs_bytes = vec![];
-    let mut normals_bytes = vec![];
-
-    let ret = Mesh::from_obj("./.objs/bat.obj");
-    match ret {
-        Err(e) => return Err(e),
-        Ok(mesh) => {
-            let buffers = mesh.buffers();
-            index_count = buffers.0.len();
-            indices_bytes = indices_as_bytes_copy(&buffers.0);
-            vertices_bytes = vertices_as_bytes_copy(&buffers.1);
-            uvs_bytes = vertices_as_bytes_copy(&buffers.2);
-            normals_bytes = vertices_as_bytes_copy(&buffers.3);
-        }
-    }
-
-    let index_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
-        label: None,
-        contents: &*indices_bytes,
-        usage: wgpu::BufferUsages::INDEX,
-    });
-    let vertex_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
-        label: None,
-        contents: &*vertices_bytes,
-        usage: wgpu::BufferUsages::VERTEX,
-    });
-    let uv_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
-        label: None,
-        contents: &*uvs_bytes,
-        usage: wgpu::BufferUsages::VERTEX,
-    });
-    let normal_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
-        label: None,
-        contents: &*normals_bytes,
-        usage: wgpu::BufferUsages::VERTEX,
-    });
-
     let camera = crate::camera::Camera::new();
 
     let depth_texture = wgpu::TextureBuilder::new()
@@ -215,11 +175,12 @@ fn create_model<T: 'static>(app: &nannou::App, user : T) -> Result<Model<T>, Box
     );
 
     let graphics = RefCell::new(Graphics::new(
-        index_count,
-        index_buffer,
-        vertex_buffer,
-        uv_buffer,
-        normal_buffer,
+        // index_count,
+        // index_buffer,
+        // vertex_buffer,
+        // uv_buffer,
+        // normal_buffer,
+        // device,
         uniform_buffer,
         depth_texture,
         depth_texture_view,
@@ -231,12 +192,18 @@ fn create_model<T: 'static>(app: &nannou::App, user : T) -> Result<Model<T>, Box
     println!("Use the mouse to orient the pitch and yaw of the camera.");
     println!("Press the `Space` key to toggle camera mode.");
 
-    Ok(Model {
-        camera_is_active,
-        graphics,
-        camera,
-        // _mesh: mesh,
-        // buffers,
-        user,
-    })
+    let ret = Mesh::from_obj("./.objs/bat.obj");
+    match ret {
+        Err(e) => return Err(e),
+        Ok(mesh) => {
+            Ok(App {
+                camera_is_active,
+                graphics,
+                camera,
+                mesh,
+                // buffers,
+                user,
+            })
+        }
+    }
 }

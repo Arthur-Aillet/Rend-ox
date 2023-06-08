@@ -1,10 +1,9 @@
-use glam::Vec3A;
+use crate::Vec3;
 
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader};
 
-use super::{Indices, Triangle, Normals, Vertices, Bone};
-use super::Mesh;
+use super::{Indices, Triangle, Normals, Vertices};
 use super::solver::solve_indices;
 
 pub struct OBJMesh {
@@ -254,8 +253,8 @@ impl OBJMesh {
         true
     }
 
-    fn parse_vertex(&mut self, line: String) -> Option<Vec3A> {
-        let mut new_vertex: Vec3A = Vec3A::ZERO;
+    fn parse_vertex(&mut self, line: String) -> Option<Vec3> {
+        let mut new_vertex: Vec3 = Vec3::ZERO;
         let mut iter = line.split_ascii_whitespace().filter(|&x| !x.is_empty());
 
         iter.next();
@@ -273,8 +272,8 @@ impl OBJMesh {
         Some(new_vertex)
     }
 
-    fn parse_uvw(&mut self, line: String) -> Option<Vec3A> {
-        let mut new_vertex: Vec3A = Vec3A::ZERO;
+    fn parse_uvw(&mut self, line: String) -> Option<Vec3> {
+        let mut new_vertex: Vec3 = Vec3::ZERO;
         let mut iter = line.split_ascii_whitespace().filter(|&x| !x.is_empty());
 
         iter.next();
@@ -290,16 +289,16 @@ impl OBJMesh {
         Some(new_vertex)
     }
 
-    fn parse_normal(&mut self, line: String) -> Option<Vec3A> {
+    fn parse_normal(&mut self, line: String) -> Option<Vec3> {
         let new_normal_asv = self.parse_vertex(line);
         if let Some(normal_vertex) = new_normal_asv {
-            Some(Vec3A::from(normal_vertex.normalize()))
+            Some(Vec3::from(normal_vertex.normalize()))
         } else {
             None
         }
     }
 
-    fn normal_from_indexes(&self, triangle: &Triangle) -> Vec3A {
+    fn normal_from_indexes(&self, triangle: &Triangle) -> Vec3 {
         Triangle::normal_from_points(
             self.vertices[triangle.points[0]],
             self.vertices[triangle.points[1]],

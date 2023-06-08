@@ -1,9 +1,8 @@
 use std::cmp::Ordering;
-use crate::mesh::solver::solve_indices;
 use crate::mesh::{Indices, Normals, Vertices};
+use crate::Vec3;
 use crate::error::RendError;
 
-use glam::Vec3A;
 use glam::Mat4;
 use crate::mesh::obj_parser::OBJMesh;
 
@@ -38,7 +37,7 @@ pub(crate) struct Triangle {
 }
 
 impl Triangle {
-    pub(crate) fn normal_from_points(point_a: Vec3A, point_b: Vec3A, point_c: Vec3A) -> Vec3A {
+    pub(crate) fn normal_from_points(point_a: Vec3, point_b: Vec3, point_c: Vec3) -> Vec3 {
         (point_a - point_b)
             .cross(point_a - point_c)
             .normalize()

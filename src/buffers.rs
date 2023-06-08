@@ -1,11 +1,11 @@
-use glam::Vec3A;
+use glam::Vec3;
 use nannou::wgpu;
 use wgpu::Device;
 use wgpu::util::DeviceExt;
 
 use crate::obj::{Indices, Mesh, Normals, Vertices};
 
-pub(crate) fn vertices_as_bytes_copy(data: &Vec<glam::Vec3A>) -> Vec<u8> {
+pub(crate) fn vertices_as_bytes_copy(data: &Vec<glam::Vec3>) -> Vec<u8> {
     let mut final_bytes: Vec<u8> = vec![];
     for elem in data {
         for i in 0..3 {

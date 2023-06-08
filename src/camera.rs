@@ -1,4 +1,4 @@
-use glam::Vec3A as Vector;
+use crate::Vec3 as Vector;
 
 pub struct Camera {
     pub position: Vector,
