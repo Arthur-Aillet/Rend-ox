@@ -22,7 +22,7 @@ pub(crate) fn key_pressed<T>(app: &nannou::App, model: &mut App<T>, key: Key) {
 
 pub fn move_camera<T>(app: &nannou::App, model: &mut App<T>, update: &Update) {
     if model.camera_is_active {
-        let velocity = (update.since_last.secs() * model.camera.speed) as f32;
+        let velocity = (update.since_last.secs() * model.camera.speed / 10.) as f32;
 
         if app.keys.down.contains(&Key::Z) {
             model.camera.move_forward(velocity);
