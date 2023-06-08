@@ -4,6 +4,7 @@ use crate::Vec3;
 use nannou;
 use nannou::wgpu;
 use nannou::Frame;
+use nannou_egui::Egui;
 
 use crate::camera_controller::key_pressed;
 use crate::graphics::Graphics;
@@ -17,7 +18,7 @@ pub struct App<T> {
     pub graphics: RefCell<Graphics>,
     pub camera: crate::camera::Camera,
     pub mesh: Mesh,
-    // pub buffers: (Indices, Vertices, Vertices, Normals),
+    pub egui_instance: Egui,
     pub user: T,
     pub user_update: UpdateFn<T>
 }
@@ -136,6 +137,10 @@ fn create_app<T: 'static>(
         }
         Some(val) => val,
     };
+
+    let egui_instance = Egui::from_window(&window);
+
+    
     let camera_is_active = true;
     match window.set_cursor_grab(true) {
         Err(_err) => {
@@ -212,9 +217,9 @@ fn create_app<T: 'static>(
                 graphics,
                 camera,
                 mesh,
-                // buffers,
                 user,
                 user_update,
+                egui_instance,
             })
         }
     }

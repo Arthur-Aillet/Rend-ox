@@ -1,11 +1,18 @@
+use std::cell::{RefCell, RefMut};
+
 use crate::app::App;
+use crate::mesh::Mesh;
 use crate::camera_controller::move_camera;
+use crate::camera::Camera;
 use crate::uniforms::Uniforms;
+use crate::graphics::Graphics;
 
 use nannou::event::{Event, Update};
-use nannou::wgpu;
+use nannou::wgpu::IndexFormat::Uint16;
+use nannou::wgpu::{self, BufferSize};
 use nannou::winit;
 use nannou::Frame;
+use nannou_egui::{egui_wgpu_backend, Egui};
 
 pub fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {
     move_camera(nannou_app, app, &update);
@@ -42,61 +49,54 @@ pub fn event<T>(_nannou_app: &nannou::App, app: &mut App<T>, event: nannou::Even
     }
 }
 
-pub fn view<T>(_nannou_app: &nannou::App, app: &App<T>, frame: Frame) {
-    let mut g = app.graphics.borrow_mut();
-
-    // If the window has changed size, recreate our depth texture to match.
-    let depth_size = g.depth_texture.size();
+fn three_d_view_rendering(mut graphics : RefMut<Graphics>, frame: &Frame, mesh: &Mesh, camera: &Camera) {
+    let depth_size = graphics.depth_texture.size();
     let device = frame.device_queue_pair().device();
     let frame_size = frame.texture_size();
     if frame_size != depth_size {
         let sample_count = frame.texture_msaa_samples();
-        g.depth_texture = wgpu::TextureBuilder::new()
+        graphics.depth_texture = wgpu::TextureBuilder::new()
             .size(frame_size)
-            .format(g.depth_texture.format())
+            .format(graphics.depth_texture.format())
             .usage(wgpu::TextureUsages::RENDER_ATTACHMENT)
             .sample_count(sample_count)
             .build(device);
-        g.depth_texture_view = g.depth_texture.view().build();
+        graphics.depth_texture_view = graphics.depth_texture.view().build();
     }
 
     // Update the uniforms
-    let uniform_buffer = Uniforms::new_as_buffer_view(frame_size.into(), &app.camera, device);
+    let uniform_buffer = Uniforms::new_as_buffer_view(frame_size.into(), camera, device);
     let uniforms_size = std::mem::size_of::<Uniforms>() as wgpu::BufferAddress;
 
     let mut encoder = frame.command_encoder();
-    encoder.copy_buffer_to_buffer(&uniform_buffer, 0, &g.uniform_buffer, 0, uniforms_size);
+    encoder.copy_buffer_to_buffer(&uniform_buffer, 0, &graphics.uniform_buffer, 0, uniforms_size);
 
-    let mut buffers = vec![] as Vec<wgpu::Buffer>;
-    let mut counts = vec![] as Vec<usize>;
-    g.draw(device, &mut buffers, &mut counts, &app.mesh);
-    {
-        let mut render_pass = wgpu::RenderPassBuilder::new()
-            .color_attachment(frame.texture_view(), |color| color)
-            // We'll use a depth texture to assist with the order of rendering fragments based on depth.
-            .depth_stencil_attachment(&g.depth_texture_view, |depth| depth)
-            .begin(&mut encoder);
-        render_pass.set_bind_group(0, &g.bind_group, &[]);
-        render_pass.set_pipeline(&g.render_pipeline);
+    let mut buffers: Vec<wgpu::Buffer> = vec![];
+    let mut counts: Vec<usize> = vec![];
+    graphics.draw(device, &mut buffers, &mut counts, mesh);
+    let mut render_pass = wgpu::RenderPassBuilder::new()
+        .color_attachment(frame.texture_view(), |color| color)
+        // We'll use a depth texture to assist with the order of rendering fragments based on depth.
+        .depth_stencil_attachment(&graphics.depth_texture_view, |depth| depth)
+        .begin(&mut encoder);
+    render_pass.set_bind_group(0, &graphics.bind_group, &[]);
+    render_pass.set_pipeline(&graphics.render_pipeline);
 
-        let mut i = 0;
-        let mut count = counts.iter();
-        while i < buffers.len() {
-            render_pass.set_index_buffer(buffers[i].slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.set_vertex_buffer(0, buffers[i + 1].slice(..));
-            render_pass.set_vertex_buffer(1, buffers[i + 2].slice(..));
-            render_pass.set_vertex_buffer(2, buffers[i + 3].slice(..));
-            if let Some(c) = count.next() {
-                render_pass.draw_indexed(0..*c as u32, 0, 0..1);
-            }
-
-            i += 4;
+    let mut count = counts.iter();
+    for i in (0..buffers.len()).step_by(4) {
+        render_pass.set_index_buffer(buffers[i].slice(..), Uint16);
+        render_pass.set_vertex_buffer(0, buffers[i + 1].slice(..));
+        render_pass.set_vertex_buffer(1, buffers[i + 2].slice(..));
+        render_pass.set_vertex_buffer(2, buffers[i + 3].slice(..));
+        if let Some(c) = count.next() {
+            render_pass.draw_indexed(0..*c as u32, 0, 0..1);
         }
     }
-    // g.render_pass = Some(render_pass);
-    //     render_pass.set_index_buffer(g.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-    //     render_pass.set_vertex_buffer(0, g.vertex_buffer.slice(..));
-    //     render_pass.set_vertex_buffer(1, g.uv_buffer.slice(..));
-    //     render_pass.set_vertex_buffer(2, g.normal_buffer.slice(..));
-    //     render_pass.draw_indexed(0..g.index_count as u32, 0, 0..1);
+}
+
+pub fn view<T>(_nannou_app: &nannou::App, app: &App<T>, frame: Frame) {
+    let mut graphics = app.graphics.borrow_mut();
+
+    three_d_view_rendering(graphics, &frame, &app.mesh, &app.camera);
+    app.egui_instance.draw_to_frame(&frame);
 }
