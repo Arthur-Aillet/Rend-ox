@@ -109,6 +109,9 @@ pub fn app<T: 'static>(nannou_app: &nannou::App, user: T, user_update: UpdateFn<
     }
 }
 
+fn raw_window_event<T>(_app: &nannou::App, model: &mut App<T>, event: &nannou::winit::event::WindowEvent) {
+    model.egui_instance.handle_raw_event(event);
+}
 fn create_app<T: 'static>(
     nannou_app: &nannou::App,
     user: T,
@@ -118,6 +121,7 @@ fn create_app<T: 'static>(
         .new_window()
         .size(1024, 576)
         .key_pressed::<App<T>>(key_pressed)
+        .raw_event(raw_window_event::<T>)
         .view::<App<T>>(view)
         .build()
     {
@@ -140,7 +144,7 @@ fn create_app<T: 'static>(
 
     let egui_instance = Egui::from_window(&window);
 
-    
+
     let camera_is_active = true;
     match window.set_cursor_grab(true) {
         Err(_err) => {
