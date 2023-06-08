@@ -1,5 +1,6 @@
 use glam::{UVec2, Vec3};
 use nannou;
+use nannou::math::ConvertAngle;
 use nannou::wgpu;
 use nannou::wgpu::util::DeviceExt;
 
@@ -35,7 +36,7 @@ impl Uniforms {
         camera: &Camera,
         device: &nannou::wgpu::Device,
     ) -> wgpu::Buffer {
-        let uniforms = Uniforms::new(window_size, camera.calc_view_matrix());
+        let uniforms = Uniforms::new(window_size, camera.calc_view_matrix(), camera.fov);
         let uniforms_bytes = uniforms.as_bytes_copy();
         let usage = wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST;
 
@@ -51,7 +52,7 @@ impl Uniforms {
         camera: &Camera,
         device: &nannou::wgpu::Device,
     ) -> wgpu::Buffer {
-        let uniforms = Uniforms::new(window_size, camera.calc_view_matrix().into());
+        let uniforms = Uniforms::new(window_size, camera.calc_view_matrix().into(), camera.fov);
         let uniforms_bytes = uniforms.as_bytes_copy();
         let usage = wgpu::BufferUsages::COPY_SRC;
 
@@ -62,10 +63,10 @@ impl Uniforms {
         })
     }
 
-    pub fn new(size: UVec2, view: glam::Mat4) -> Uniforms {
+    pub fn new(size: UVec2, view: glam::Mat4, fov: f64) -> Uniforms {
         let rotation = glam::Mat4::from_rotation_y(0f32);
         let aspect_ratio = size.x as f32 / size.y as f32;
-        let fov_y = std::f32::consts::FRAC_PI_2;
+        let fov_y = fov.deg_to_rad() as f32;
         let near = 0.0001;
         let far = 100.0;
         let proj = glam::Mat4::perspective_rh_gl(fov_y, aspect_ratio, near, far);
