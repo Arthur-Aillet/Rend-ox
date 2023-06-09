@@ -6,6 +6,7 @@ pub struct Camera {
     pub yaw: f32,
     pub speed: f64,
     pub fov: f64,
+    pub sensitivity: f64,
 }
 
 fn pitch_yaw_to_direction(pitch: f32, yaw: f32) -> Vector {
@@ -24,6 +25,7 @@ impl Camera {
             yaw: std::f32::consts::PI * 0.5,
             speed: 1.,
             fov: 80.0,
+            sensitivity: 4.,
         }
     }
 

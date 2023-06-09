@@ -1,18 +1,17 @@
-use std::cell::{RefCell, RefMut};
+use std::cell::RefMut;
 
 use crate::app::App;
-use crate::mesh::Mesh;
-use crate::camera_controller::move_camera;
 use crate::camera::Camera;
-use crate::uniforms::Uniforms;
+use crate::camera_controller::move_camera;
 use crate::graphics::Graphics;
+use crate::mesh::Mesh;
+use crate::uniforms::Uniforms;
 
 use nannou::event::{Event, Update};
+use nannou::wgpu;
 use nannou::wgpu::IndexFormat::Uint16;
-use nannou::wgpu::{self, BufferSize};
 use nannou::winit;
 use nannou::Frame;
-use nannou_egui::{egui_wgpu_backend, Egui};
 
 pub fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {
     move_camera(nannou_app, app, &update);
@@ -23,7 +22,7 @@ pub fn event<T>(_nannou_app: &nannou::App, app: &mut App<T>, event: nannou::Even
     if app.camera_is_active {
         if let Event::DeviceEvent(_device_id, event) = event {
             if let winit::event::DeviceEvent::Motion { axis, value } = event {
-                let sensitivity = 0.004;
+                let sensitivity = app.camera.sensitivity / 1000.;
                 match axis {
                     // Yaw left and right on mouse x axis movement.
                     0 => app.camera.yaw -= (value * sensitivity) as f32,
@@ -37,7 +36,7 @@ pub fn event<T>(_nannou_app: &nannou::App, app: &mut App<T>, event: nannou::Even
                     }
                 }
             } else if let winit::event::DeviceEvent::MouseMotion { delta } = event {
-                let sensitivity = 0.004;
+                let sensitivity = app.camera.sensitivity / 1000.;
                 app.camera.yaw -= (delta.0 * sensitivity) as f32;
                 let max_pitch = std::f32::consts::PI * 0.5 - 0.0001;
                 let min_pitch = -max_pitch;
@@ -49,7 +48,12 @@ pub fn event<T>(_nannou_app: &nannou::App, app: &mut App<T>, event: nannou::Even
     }
 }
 
-fn three_d_view_rendering(mut graphics : RefMut<Graphics>, frame: &Frame, mesh: &Mesh, camera: &Camera) {
+fn three_d_view_rendering(
+    mut graphics: RefMut<Graphics>,
+    frame: &Frame,
+    mesh: &Mesh,
+    camera: &Camera,
+) {
     let depth_size = graphics.depth_texture.size();
     let device = frame.device_queue_pair().device();
     let frame_size = frame.texture_size();
@@ -69,7 +73,13 @@ fn three_d_view_rendering(mut graphics : RefMut<Graphics>, frame: &Frame, mesh: 
     let uniforms_size = std::mem::size_of::<Uniforms>() as wgpu::BufferAddress;
 
     let mut encoder = frame.command_encoder();
-    encoder.copy_buffer_to_buffer(&uniform_buffer, 0, &graphics.uniform_buffer, 0, uniforms_size);
+    encoder.copy_buffer_to_buffer(
+        &uniform_buffer,
+        0,
+        &graphics.uniform_buffer,
+        0,
+        uniforms_size,
+    );
 
     let mut buffers: Vec<wgpu::Buffer> = vec![];
     let mut counts: Vec<usize> = vec![];
@@ -95,8 +105,10 @@ fn three_d_view_rendering(mut graphics : RefMut<Graphics>, frame: &Frame, mesh: 
 }
 
 pub fn view<T>(_nannou_app: &nannou::App, app: &App<T>, frame: Frame) {
-    let mut graphics = app.graphics.borrow_mut();
+    let graphics = app.graphics.borrow_mut();
 
     three_d_view_rendering(graphics, &frame, &app.mesh, &app.camera);
-    app.egui_instance.draw_to_frame(&frame);
+    app.egui_instance
+        .draw_to_frame(&frame)
+        .expect("egui instance couldn't be drawn")
 }
