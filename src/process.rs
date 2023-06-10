@@ -86,7 +86,7 @@ fn three_d_view_rendering(
     let mut buffers: Vec<wgpu::Buffer> = vec![];
     let mut instance_buffer: wgpu::Buffer;
     let mut counts: Vec<usize> = vec![];
-    let instances = vec![Mat4::IDENTITY, Mat4::from_translation(Vec3::new(0., 0., 2.))];
+    let instances = vec![Mat4::from_rotation_x(std::f32::consts::PI * 0.5), Mat4::from_translation(Vec3::new(2., 0., 0.))];
     let raw_instance_mat = matrices_as_bytes_copy(&instances);
     instance_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
         label: None,

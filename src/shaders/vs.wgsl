@@ -12,11 +12,11 @@ struct InstanceInput {
     [[location(8)]] model_matrix_3: vec4<f32>;
 };
 
-struct VertexOutput {
+struct Vertex {
     [[builtin(position)]] vpos: vec4<f32>;
     [[location(0)]] pos: vec4<f32>;
-    [[location(1)]] normal: vec3<f32>;
-    [[location(2)]] uv: vec3<f32>;
+    [[location(1)]] uv: vec3<f32>;
+    [[location(2)]] normal: vec3<f32>;
     [[location(3)]] color: vec3<f32>;
 };
 
@@ -45,17 +45,17 @@ fn main(
     [[location(1)]] uv: vec3<f32>,
     [[location(2)]] normal: vec3<f32>,
     instance: InstanceInput,
-) -> VertexOutput {
+) -> Vertex {
     let model_matrix = mat4x4<f32>(
             instance.model_matrix_0,
             instance.model_matrix_1,
             instance.model_matrix_2,
             instance.model_matrix_3,
         );
-    let worldview: mat4x4<f32> = uniforms.view * uniforms.world;
-    let wv3: mat3x3<f32> = mat3x3<f32>(worldview[0].xyz, worldview[1].xyz, worldview[2].xyz);
+    let worldview: mat4x4<f32> = uniforms.view * uniforms.world * model_matrix;
+    let wv3: mat3x3<f32> = (mat3x3<f32>(worldview[0].xyz, worldview[1].xyz, worldview[2].xyz));
 //    let out_normal: vec3<f32> = wv3 * normal;
 //    let out_normal: vec3<f32> = transpose(custom_inverse(wv3)) * normal;
-    let out_pos: vec4<f32> = uniforms.proj * worldview * model_matrix * vec4<f32>(pos, 1.0);
-    return VertexOutput(out_pos, vec4<f32>(pos, 1.0), uv, normal, out_pos.xyz);
+    let out_pos: vec4<f32> = uniforms.proj * worldview * vec4<f32>(pos, 1.0);
+    return Vertex(out_pos, vec4<f32>(pos, 1.0), uv, normalize(wv3 * normal), vec3<f32>(1.));
 }
