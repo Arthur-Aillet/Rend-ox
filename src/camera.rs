@@ -62,7 +62,10 @@ impl Camera {
     }
 
     pub fn move_up(&mut self, distance: f32) {
-        self.position += Vector::Z * distance;
+        let pitch = self.pitch + std::f32::consts::PI * 0.5;
+        let direction = pitch_yaw_to_direction(pitch, self.yaw);
+
+        self.position += direction * distance;
     }
 
     pub fn calc_view_matrix(&self) -> glam::Mat4 {
