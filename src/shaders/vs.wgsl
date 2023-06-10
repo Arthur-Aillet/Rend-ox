@@ -1,18 +1,27 @@
-struct Uniforms {
-    world: mat4x4<f32>,
-    view: mat4x4<f32>,
-    proj: mat4x4<f32>,
+[[block]]
+struct Data {
+    world: mat4x4<f32>;
+    view: mat4x4<f32>;
+    proj: mat4x4<f32>;
+};
+
+struct InstanceInput {
+    [[location(5)]] model_matrix_0: vec4<f32>;
+    [[location(6)]] model_matrix_1: vec4<f32>;
+    [[location(7)]] model_matrix_2: vec4<f32>;
+    [[location(8)]] model_matrix_3: vec4<f32>;
 };
 
 struct VertexOutput {
-    @builtin(position) vpos: vec4<f32>,
-    @location(0) pos: vec4<f32>,
-    @location(1) normal: vec3<f32>,
-    @location(2) uv: vec3<f32>,
+    [[builtin(position)]] vpos: vec4<f32>;
+    [[location(0)]] pos: vec4<f32>;
+    [[location(1)]] normal: vec3<f32>;
+    [[location(2)]] uv: vec3<f32>;
+    [[location(3)]] color: vec3<f32>;
 };
 
 [[group(0), binding(0)]]
-var<uniform> uniforms: Uniforms;
+var<uniform> uniforms: Data;
 
 fn custom_inverse(m: mat3x3<f32>) -> mat3x3<f32> {
     let determinant: f32 = determinant(m);
@@ -30,16 +39,23 @@ fn custom_inverse(m: mat3x3<f32>) -> mat3x3<f32> {
     return minv;
 }
 
-@vertex
+[[stage(vertex)]]
 fn main(
-    @location(0) pos: vec3<f32>,
-    @location(1) uv: vec3<f32>,
-    @location(2) normal: vec3<f32>,
+    [[location(0)]] pos: vec3<f32>,
+    [[location(1)]] uv: vec3<f32>,
+    [[location(2)]] normal: vec3<f32>,
+    instance: InstanceInput,
 ) -> VertexOutput {
+    let model_matrix = mat4x4<f32>(
+            instance.model_matrix_0,
+            instance.model_matrix_1,
+            instance.model_matrix_2,
+            instance.model_matrix_3,
+        );
     let worldview: mat4x4<f32> = uniforms.view * uniforms.world;
     let wv3: mat3x3<f32> = mat3x3<f32>(worldview[0].xyz, worldview[1].xyz, worldview[2].xyz);
 //    let out_normal: vec3<f32> = wv3 * normal;
 //    let out_normal: vec3<f32> = transpose(custom_inverse(wv3)) * normal;
-    let out_pos: vec4<f32> = uniforms.proj * worldview * vec4<f32>(pos, 1.0);
-    return VertexOutput(out_pos, vec4<f32>(pos, 1.0), uv, normal);
+    let out_pos: vec4<f32> = uniforms.proj * worldview * model_matrix * vec4<f32>(pos, 1.0);
+    return VertexOutput(out_pos, vec4<f32>(pos, 1.0), uv, normal, out_pos.xyz);
 }

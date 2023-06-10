@@ -1,9 +1,11 @@
 use std::cell::RefCell;
+use std::mem::size_of;
 
 use nannou;
 use nannou::wgpu;
 use nannou::Frame;
 use crate::Vec3;
+use glam::Mat4;
 
 use crate::camera_controller::key_pressed;
 use crate::graphics::Graphics;
@@ -65,6 +67,32 @@ fn create_render_pipeline(
         .add_vertex_buffer::<glam::Vec3>(&wgpu::vertex_attr_array![0 => Float32x3])
         .add_vertex_buffer::<glam::Vec3>(&wgpu::vertex_attr_array![1 => Float32x3])
         .add_vertex_buffer::<glam::Vec3>(&wgpu::vertex_attr_array![2 => Float32x3])
+        // instance matrix split into 4 vec4
+        .add_instance_buffer::<glam::Mat4>(&[
+            wgpu::VertexAttribute {
+                offset: 0,
+                shader_location: 5,
+                format: wgpu::VertexFormat::Float32x4,
+            },
+            // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
+            // for each vec4. We'll have to reassemble the mat4 in
+            // the shader.
+            wgpu::VertexAttribute {
+                offset: size_of::<[f32; 4]>() as wgpu::BufferAddress,
+                shader_location: 6,
+                format: wgpu::VertexFormat::Float32x4,
+            },
+            wgpu::VertexAttribute {
+                offset: size_of::<[f32; 8]>() as wgpu::BufferAddress,
+                shader_location: 7,
+                format: wgpu::VertexFormat::Float32x4,
+            },
+            wgpu::VertexAttribute {
+                offset: size_of::<[f32; 12]>() as wgpu::BufferAddress,
+                shader_location: 8,
+                format: wgpu::VertexFormat::Float32x4,
+            }
+        ])
         .depth_format(depth_format)
         .sample_count(sample_count)
         .build(device)
@@ -85,6 +113,16 @@ pub fn indices_as_bytes_copy(data: &Vec<u16>) -> Vec<u8> {
     for elem in data {
         final_bytes.push(*elem as u8);
         final_bytes.push((*elem >> 8) as u8);
+    }
+    final_bytes
+}
+
+pub(crate) fn matrices_as_bytes_copy(data: &Vec<Mat4>) -> Vec<u8> {
+    let mut final_bytes: Vec<u8> = vec![];
+    for elem in data {
+        for i in elem.to_cols_array() {
+            final_bytes.extend(i.to_le_bytes());
+        }
     }
     final_bytes
 }
@@ -140,14 +178,8 @@ fn create_app<T: 'static>(nannou_app: &nannou::App, user : T) -> Result<App<T>, 
     let msaa_samples = window.msaa_samples();
     let window_size: glam::UVec2 = window.inner_size_pixels().into();
 
-    let vs_mod = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-        label: Some("Vertex"),
-        source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/vs.wgsl").into()),
-    });
-    let fs_mod = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-        label: Some("Fragment"),
-        source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/fs.wgsl").into()),
-    });
+    let vs_mod = device.create_shader_module(&wgpu::include_wgsl!("./shaders/vs.wgsl"));
+    let fs_mod = device.create_shader_module(&wgpu::include_wgsl!("./shaders/fs.wgsl"));
 
     let camera = crate::camera::Camera::new();
 

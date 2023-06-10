@@ -1,8 +1,11 @@
+use glam::Mat4;
+use crate::Vec3;
 use crate::camera_controller::move_camera;
-use crate::app::App;
+use crate::app::{App, matrices_as_bytes_copy};
 use crate::uniforms::Uniforms;
 
 use nannou::event::{Event, Update};
+use nannou::wgpu::util::DeviceExt;
 use nannou::wgpu;
 use nannou::winit;
 use nannou::Frame;
@@ -67,7 +70,15 @@ pub fn view<T>(_nannou_app: &nannou::App, app: &App<T>, frame: Frame) {
     encoder.copy_buffer_to_buffer(&uniform_buffer, 0, &g.uniform_buffer, 0, uniforms_size);
 
     let mut buffers = vec![] as Vec<wgpu::Buffer>;
+    let mut instance_buffer: wgpu::Buffer;
     let mut counts = vec![] as Vec<usize>;
+    let instances = vec![Mat4::IDENTITY, Mat4::from_translation(Vec3::new(0., 0., 2.))];
+    let raw_instance_mat = matrices_as_bytes_copy(&instances);
+    instance_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
+        label: None,
+        contents: &*raw_instance_mat,
+        usage: wgpu::BufferUsages::VERTEX,
+    });
     g.draw(device, &mut buffers, &mut counts, &app.mesh);
     {
         let mut render_pass = wgpu::RenderPassBuilder::new()
@@ -85,8 +96,9 @@ pub fn view<T>(_nannou_app: &nannou::App, app: &App<T>, frame: Frame) {
             render_pass.set_vertex_buffer(0, buffers[i + 1].slice(..));
             render_pass.set_vertex_buffer(1, buffers[i + 2].slice(..));
             render_pass.set_vertex_buffer(2, buffers[i + 3].slice(..));
+            render_pass.set_vertex_buffer(3, instance_buffer.slice(..));
             if let Some(c) = count.next() {
-                render_pass.draw_indexed(0..*c as u32, 0, 0..1);
+                render_pass.draw_indexed(0..*c as u32, 0, 0..instances.len() as u32);
             }
 
             i += 4;
