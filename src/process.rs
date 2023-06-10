@@ -1,6 +1,8 @@
 use std::cell::RefMut;
 
-use crate::app::App;
+use glam::Mat4;
+use crate::Vec3;
+use crate::app::{App, matrices_as_bytes_copy};
 use crate::camera::Camera;
 use crate::camera_controller::move_camera;
 use crate::graphics::Graphics;
@@ -8,8 +10,8 @@ use crate::mesh::Mesh;
 use crate::uniforms::Uniforms;
 
 use nannou::event::{Event, Update};
+use nannou::wgpu::util::DeviceExt;
 use nannou::wgpu;
-use nannou::wgpu::IndexFormat::Uint16;
 use nannou::winit;
 use nannou::Frame;
 
@@ -82,24 +84,36 @@ fn three_d_view_rendering(
     );
 
     let mut buffers: Vec<wgpu::Buffer> = vec![];
+    let mut instance_buffer: wgpu::Buffer;
     let mut counts: Vec<usize> = vec![];
+    let instances = vec![Mat4::IDENTITY, Mat4::from_translation(Vec3::new(0., 0., 2.))];
+    let raw_instance_mat = matrices_as_bytes_copy(&instances);
+    instance_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
+        label: None,
+        contents: &*raw_instance_mat,
+        usage: wgpu::BufferUsages::VERTEX,
+    });
     graphics.draw(device, &mut buffers, &mut counts, mesh);
-    let mut render_pass = wgpu::RenderPassBuilder::new()
-        .color_attachment(frame.texture_view(), |color| color)
-        // We'll use a depth texture to assist with the order of rendering fragments based on depth.
-        .depth_stencil_attachment(&graphics.depth_texture_view, |depth| depth)
-        .begin(&mut encoder);
-    render_pass.set_bind_group(0, &graphics.bind_group, &[]);
-    render_pass.set_pipeline(&graphics.render_pipeline);
+    {
+        let mut render_pass = wgpu::RenderPassBuilder::new()
+            .color_attachment(frame.texture_view(), |color| color)
+            // We'll use a depth texture to assist with the order of rendering fragments based on depth.
+            .depth_stencil_attachment(&graphics.depth_texture_view, |depth| depth)
+            .begin(&mut encoder);
+        render_pass.set_bind_group(0, &graphics.bind_group, &[]);
+        render_pass.set_pipeline(&graphics.render_pipeline);
 
-    let mut count = counts.iter();
-    for i in (0..buffers.len()).step_by(4) {
-        render_pass.set_index_buffer(buffers[i].slice(..), Uint16);
-        render_pass.set_vertex_buffer(0, buffers[i + 1].slice(..));
-        render_pass.set_vertex_buffer(1, buffers[i + 2].slice(..));
-        render_pass.set_vertex_buffer(2, buffers[i + 3].slice(..));
-        if let Some(c) = count.next() {
-            render_pass.draw_indexed(0..*c as u32, 0, 0..1);
+        let mut count = counts.iter();
+        for i in (0..buffers.len()).step_by(4) {
+            render_pass.set_index_buffer(buffers[i].slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.set_vertex_buffer(0, buffers[i + 1].slice(..));
+            render_pass.set_vertex_buffer(1, buffers[i + 2].slice(..));
+            render_pass.set_vertex_buffer(2, buffers[i + 3].slice(..));
+            render_pass.set_vertex_buffer(3, instance_buffer.slice(..));
+            if let Some(c) = count.next() {
+                render_pass.draw_indexed(0..*c as u32, 0, 0..instances.len() as u32);
+            }
+
         }
     }
 }
