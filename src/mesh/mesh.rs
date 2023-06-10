@@ -1,3 +1,12 @@
+//! Generic Mesh class
+//!
+//! Represents any mesh data loaded from any format
+//! Supports:
+//!     - custom normal splits
+//!     - vertex groups
+//!     - material slots
+//! planned support for bone animation
+
 use std::cmp::Ordering;
 use crate::mesh::{Indices, Normals, Vertices};
 use crate::Vec3;
@@ -6,6 +15,8 @@ use crate::error::RendError;
 use glam::Mat4;
 use crate::mesh::obj_parser::OBJMesh;
 
+/// A Bone used for animation
+/// Not fully implemented, format subject to change
 #[derive(Clone, Debug)]
 pub struct Bone {
     pub(crate) idx: u32,
@@ -55,6 +66,13 @@ impl Triangle {
     }
 }
 
+/// A single mesh
+///
+/// holds geometry data
+/// The [`Self::buffers()`] Method gives access to the internal buffers for use in rendering
+/// A mesh can be loaded from:
+///     - an ascii obj file with [`Self::from_obj()`]
+///     - ~~an smd file with [`Self::from_smd()`]~~ Not yet supported
 pub struct Mesh {
     pub(crate) faces: Indices,
     pub(crate) vertices: Vertices,
@@ -80,11 +98,15 @@ impl Mesh {
         }
     }
 
+    /// Access the buffers associated with a mesh file, for rendering.
+    /// These buffers are prior to any transformation
     pub fn buffers(&self) -> (&Indices, &Vertices, &Vertices, &Normals) {
         (&self.faces, &self.vertices, &self.uvs, &self.normals)
     }
 
-    pub fn from_obj( file_name: &str) -> Result<Mesh, Box<dyn std::error::Error>> {
+    /// Load an obj from a ASCII .obj file
+    /// This function will return an error on an unparsable file
+    pub fn from_obj(file_name: &str) -> Result<Mesh, Box<dyn std::error::Error>> {
         let mut obj = OBJMesh::new();
         if !obj.load_obj(file_name) {
             return Err(Box::new(RendError::new("Failed to parse")));
