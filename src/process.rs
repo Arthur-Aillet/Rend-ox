@@ -17,10 +17,10 @@ use nannou::Frame;
 
 pub fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {
     move_camera(nannou_app, app, &update);
-    {
-        app.draw(&app.mesh);
-    }
     (app.user_update)(nannou_app, app, update);
+    // {
+    //     app.draw(&app.mesh);
+    // }
 }
 
 pub fn event<T>(_nannou_app: &nannou::App, app: &mut App<T>, event: nannou::Event) {
@@ -102,6 +102,7 @@ fn three_d_view_rendering(
             }));
         }
     }
+    graphics.draw_queue.clear();
     {
         let mut render_pass = wgpu::RenderPassBuilder::new()
             .color_attachment(frame.texture_view(), |color| color)

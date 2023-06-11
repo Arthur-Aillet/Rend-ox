@@ -266,9 +266,26 @@ fn create_app<T: 'static>(
 impl<T> App<T> {
     pub fn draw(&self, md: &MeshDescriptor) -> bool {
         if let Ok(mut g) = self.graphics.try_borrow_mut() {
-            g.draw_queue.insert(md.clone(), vec![Mat4::IDENTITY]);
+            if let Some(old) = g.draw_queue.get_mut(&md) {
+                old.append(&mut vec![Mat4::IDENTITY]);
+            } else {
+                g.draw_queue.insert(md.clone(), vec![Mat4::IDENTITY]);
+            }
             return true;
         }
+        println!("Rendox: failed draw call of {}", md.name);
+        false
+    }
+    pub fn draw_instances(&self, md: &MeshDescriptor, mut instances: Vec<Mat4>) -> bool {
+        if let Ok(mut g) = self.graphics.try_borrow_mut() {
+            if let Some(old) = g.draw_queue.get_mut(&md) {
+                old.append(&mut instances);
+            } else {
+                g.draw_queue.insert(md.clone(), instances);
+            }
+            return true;
+        }
+        println!("Rendox: failed instanced draw call of {}", md.name);
         false
     }
 }
