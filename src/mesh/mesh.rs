@@ -74,6 +74,7 @@ impl Triangle {
 ///     - an ascii obj file with [`Self::from_obj()`]
 ///     - ~~an smd file with [`Self::from_smd()`]~~ Not yet supported
 pub struct Mesh {
+    pub(crate) path: String,
     pub(crate) faces: Indices,
     pub(crate) vertices: Vertices,
     pub(crate) normals: Normals,
@@ -87,6 +88,7 @@ pub struct Mesh {
 impl Mesh {
     pub fn new() -> Mesh {
         Mesh {
+            path: "".into(),
             faces: vec![],
             vertices: vec![],
             uvs: vec![],
@@ -113,6 +115,7 @@ impl Mesh {
         }
         let (faces, vertices, uvs, normals) = obj.as_buffers();
         Ok(Mesh {
+            path: file_name.into(),
             faces,
             vertices,
             uvs,

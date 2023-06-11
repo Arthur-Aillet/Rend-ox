@@ -10,7 +10,7 @@ use glam::Mat4;
 
 use crate::camera_controller::key_pressed;
 use crate::graphics::Graphics;
-use crate::mesh::Mesh;
+use crate::mesh::{Mesh, MeshDescriptor};
 use crate::process::{view, event, update};
 use crate::uniforms::Uniforms;
 
@@ -18,7 +18,7 @@ pub struct App<T> {
     pub camera_is_active: bool,
     pub graphics: RefCell<Graphics>,
     pub camera: crate::camera::Camera,
-    pub mesh: Mesh,
+    pub mesh: MeshDescriptor,
     pub egui_instance: Egui,
     pub user: T,
     pub user_update: UpdateFn<T>
@@ -226,7 +226,7 @@ fn create_app<T: 'static>(
         msaa_samples,
     );
 
-    let graphics = RefCell::new(Graphics::new(
+    let mut graphics = Graphics::new(
         // index_count,
         // index_buffer,
         // vertex_buffer,
@@ -238,19 +238,21 @@ fn create_app<T: 'static>(
         depth_texture_view,
         bind_group,
         render_pipeline,
-    ));
+    );
 
     println!("Use the `W`, `A`, `S`, `D`, `Q` and `E` keys to move the camera.");
     println!("Use the mouse to orient the pitch and yaw of the camera.");
     println!("Press the `Space` key to toggle camera mode.");
 
-    let ret = Mesh::from_obj("./.objs/bat.obj");
+    // let ret = Mesh::from_obj("./.objs/bat.obj");
+
+    let ret = graphics.load_mesh("./.objs/bat.obj");
     match ret {
         Err(e) => return Err(e),
         Ok(mesh) => {
             Ok(App {
                 camera_is_active,
-                graphics,
+                graphics: RefCell::new(graphics),
                 camera,
                 mesh,
                 user,
@@ -258,5 +260,15 @@ fn create_app<T: 'static>(
                 egui_instance,
             })
         }
+    }
+}
+
+impl<T> App<T> {
+    pub fn draw(&self, md: &MeshDescriptor) -> bool {
+        if let Ok(mut g) = self.graphics.try_borrow_mut() {
+            g.draw_queue.insert(md.clone(), vec![Mat4::IDENTITY]);
+            return true;
+        }
+        false
     }
 }

@@ -6,7 +6,7 @@ use crate::app::{App, matrices_as_bytes_copy};
 use crate::camera::Camera;
 use crate::camera_controller::move_camera;
 use crate::graphics::Graphics;
-use crate::mesh::Mesh;
+use crate::mesh::{Mesh, MeshDescriptor};
 use crate::uniforms::Uniforms;
 
 use nannou::event::{Event, Update};
@@ -17,6 +17,9 @@ use nannou::Frame;
 
 pub fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {
     move_camera(nannou_app, app, &update);
+    {
+        app.draw(&app.mesh);
+    }
     (app.user_update)(nannou_app, app, update);
 }
 
@@ -53,7 +56,6 @@ pub fn event<T>(_nannou_app: &nannou::App, app: &mut App<T>, event: nannou::Even
 fn three_d_view_rendering(
     mut graphics: RefMut<Graphics>,
     frame: &Frame,
-    mesh: &Mesh,
     camera: &Camera,
 ) {
     let depth_size = graphics.depth_texture.size();
@@ -84,16 +86,22 @@ fn three_d_view_rendering(
     );
 
     let mut buffers: Vec<wgpu::Buffer> = vec![];
-    let mut instance_buffer: wgpu::Buffer;
+    let mut instance_buffers: Vec<wgpu::Buffer> = vec![];
     let mut counts: Vec<usize> = vec![];
-    let instances = vec![Mat4::from_rotation_x(std::f32::consts::PI * 0.5), Mat4::from_translation(Vec3::new(2., 0., 0.))];
-    let raw_instance_mat = matrices_as_bytes_copy(&instances);
-    instance_buffer = device.create_buffer_init(&wgpu::BufferInitDescriptor {
-        label: None,
-        contents: &*raw_instance_mat,
-        usage: wgpu::BufferUsages::VERTEX,
-    });
-    graphics.draw(device, &mut buffers, &mut counts, mesh);
+    let mut all_instances: Vec<Vec<Mat4>> = vec![]; //= vec![Mat4::from_rotation_x(std::f32::consts::PI * 0.5), Mat4::from_translation(Vec3::new(2., 0., 0.))];
+
+    for (md, instances) in &graphics.draw_queue {
+        if let Some(mesh) = graphics.meshes.get(&md.idx) {
+            graphics.draw(device, &mut buffers, &mut counts, mesh);
+            all_instances.push(instances.clone());
+            let raw_instance_mat = matrices_as_bytes_copy(&instances);
+            instance_buffers.push(device.create_buffer_init(&wgpu::BufferInitDescriptor {
+                label: None,
+                contents: &*raw_instance_mat,
+                usage: wgpu::BufferUsages::VERTEX,
+            }));
+        }
+    }
     {
         let mut render_pass = wgpu::RenderPassBuilder::new()
             .color_attachment(frame.texture_view(), |color| color)
@@ -104,14 +112,16 @@ fn three_d_view_rendering(
         render_pass.set_pipeline(&graphics.render_pipeline);
 
         let mut count = counts.iter();
+        let mut instance = all_instances.iter();
+        let mut instance_buffer = instance_buffers.iter();
         for i in (0..buffers.len()).step_by(4) {
             render_pass.set_index_buffer(buffers[i].slice(..), wgpu::IndexFormat::Uint16);
             render_pass.set_vertex_buffer(0, buffers[i + 1].slice(..));
             render_pass.set_vertex_buffer(1, buffers[i + 2].slice(..));
             render_pass.set_vertex_buffer(2, buffers[i + 3].slice(..));
-            render_pass.set_vertex_buffer(3, instance_buffer.slice(..));
-            if let Some(c) = count.next() {
-                render_pass.draw_indexed(0..*c as u32, 0, 0..instances.len() as u32);
+            if let (Some(c), Some(inst), Some(inst_buff)) = (count.next(), instance.next(), instance_buffer.next()) {
+                render_pass.set_vertex_buffer(3, inst_buff.slice(..));
+                render_pass.draw_indexed(0..*c as u32, 0, 0..inst.len() as u32);
             }
 
         }
@@ -119,9 +129,10 @@ fn three_d_view_rendering(
 }
 
 pub fn view<T>(_nannou_app: &nannou::App, app: &App<T>, frame: Frame) {
-    let graphics = app.graphics.borrow_mut();
+    if let Ok(graphics) = app.graphics.try_borrow_mut() {
+        three_d_view_rendering(graphics, &frame, &app.camera);
+    }
 
-    three_d_view_rendering(graphics, &frame, &app.mesh, &app.camera);
     app.egui_instance
         .draw_to_frame(&frame)
         .expect("egui instance couldn't be drawn")

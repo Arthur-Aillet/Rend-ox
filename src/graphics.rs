@@ -1,9 +1,13 @@
+use std::collections::HashMap;
+use glam::Mat4;
 use nannou::wgpu;
 use crate::mesh::Mesh;
 use crate::Vec3;
 use crate::glam::Quat;
 use crate::app::{indices_as_bytes_copy, vertices_as_bytes_copy};
 use nannou::wgpu::util::DeviceExt;
+use crate::mesh::MeshDescriptor;
+use crate::error::RendError;
 
 pub struct Graphics {
     //pub device: &wgpu::Device,
@@ -12,6 +16,9 @@ pub struct Graphics {
     pub depth_texture_view: wgpu::TextureView,
     pub bind_group: wgpu::BindGroup,
     pub render_pipeline: wgpu::RenderPipeline,
+    pub draw_queue: HashMap<MeshDescriptor, Vec<Mat4>>,
+    pub meshes: HashMap<usize, Mesh>,
+    mesh_count: usize,
     // pub(crate) render_pass: Option<wgpu::RenderPass>,
 }
 
@@ -31,8 +38,26 @@ impl Graphics {
             depth_texture_view,
             bind_group,
             render_pipeline,
+            draw_queue: HashMap::new(),
+            meshes: HashMap::new(),
+            mesh_count: 0,
             // render_pass : None,
         }
+    }
+
+    pub fn load_mesh(&mut self, path: &str) -> Result<MeshDescriptor, Box<dyn std::error::Error>> {
+        for (idx, mesh) in &self.meshes {
+            if mesh.path == path {
+                return Ok(MeshDescriptor::new(*idx, path));
+            }
+        }
+        match Mesh::from_obj(path) {
+            Ok(mesh) => { self.meshes.insert(self.mesh_count, mesh); }
+            Err(e) => { return Err(e) }
+        }
+        let ret = MeshDescriptor::new(self.mesh_count, path);
+        self.mesh_count += 1;
+        Ok(ret)
     }
 
     pub fn draw(&self, device: &wgpu::Device, buffers: &mut Vec<wgpu::Buffer>, counts: &mut Vec<usize>, mesh : &Mesh) -> bool {
@@ -110,4 +135,3 @@ impl Graphics {
     //     false
     // }
 }
-
