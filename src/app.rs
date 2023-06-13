@@ -1,10 +1,9 @@
 use std::cell::RefCell;
-use std::mem::size_of;
+use std::ops::Deref;
 
 use crate::Vec3;
 use nannou;
 use nannou::wgpu;
-use nannou::Frame;
 use nannou_egui::Egui;
 use glam::Mat4;
 
@@ -12,92 +11,15 @@ use crate::camera_controller::key_pressed;
 use crate::graphics::Graphics;
 use crate::mesh::{Mesh, MeshDescriptor};
 use crate::process::{view, event, update};
-use crate::uniforms::Uniforms;
 
 pub struct App<T> {
     pub camera_is_active: bool,
     pub graphics: RefCell<Graphics>,
     pub camera: crate::camera::Camera,
-    pub mesh: MeshDescriptor,
+    // pub mesh: MeshDescriptor,
     pub egui_instance: Egui,
     pub user: T,
     pub user_update: UpdateFn<T>
-}
-
-fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    wgpu::BindGroupLayoutBuilder::new()
-        .uniform_buffer(wgpu::ShaderStages::VERTEX, false)
-        .build(device)
-}
-
-fn create_bind_group(
-    device: &wgpu::Device,
-    layout: &wgpu::BindGroupLayout,
-    uniform_buffer: &wgpu::Buffer,
-) -> wgpu::BindGroup {
-    wgpu::BindGroupBuilder::new()
-        .buffer::<Uniforms>(uniform_buffer, 0..1)
-        .build(device, layout)
-}
-
-fn create_pipeline_layout(
-    device: &wgpu::Device,
-    bind_group_layout: &wgpu::BindGroupLayout,
-) -> wgpu::PipelineLayout {
-    let desc = wgpu::PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[&bind_group_layout],
-        push_constant_ranges: &[],
-    };
-    device.create_pipeline_layout(&desc)
-}
-
-fn create_render_pipeline(
-    device: &wgpu::Device,
-    layout: &wgpu::PipelineLayout,
-    vs_mod: &wgpu::ShaderModule,
-    fs_mod: &wgpu::ShaderModule,
-    dst_format: wgpu::TextureFormat,
-    depth_format: wgpu::TextureFormat,
-    sample_count: u32,
-) -> wgpu::RenderPipeline {
-    wgpu::RenderPipelineBuilder::from_layout(layout, vs_mod)
-        .fragment_shader(&fs_mod)
-        .color_format(dst_format)
-        .color_blend(wgpu::BlendComponent::REPLACE)
-        .alpha_blend(wgpu::BlendComponent::REPLACE)
-        .add_vertex_buffer::<glam::Vec3>(&wgpu::vertex_attr_array![0 => Float32x3])
-        .add_vertex_buffer::<glam::Vec3>(&wgpu::vertex_attr_array![1 => Float32x3])
-        .add_vertex_buffer::<glam::Vec3>(&wgpu::vertex_attr_array![2 => Float32x3])
-        // instance matrix split into 4 vec4
-        .add_instance_buffer::<glam::Mat4>(&[
-            wgpu::VertexAttribute {
-                offset: 0,
-                shader_location: 5,
-                format: wgpu::VertexFormat::Float32x4,
-            },
-            // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
-            // for each vec4. We'll have to reassemble the mat4 in
-            // the shader.
-            wgpu::VertexAttribute {
-                offset: size_of::<[f32; 4]>() as wgpu::BufferAddress,
-                shader_location: 6,
-                format: wgpu::VertexFormat::Float32x4,
-            },
-            wgpu::VertexAttribute {
-                offset: size_of::<[f32; 8]>() as wgpu::BufferAddress,
-                shader_location: 7,
-                format: wgpu::VertexFormat::Float32x4,
-            },
-            wgpu::VertexAttribute {
-                offset: size_of::<[f32; 12]>() as wgpu::BufferAddress,
-                shader_location: 8,
-                format: wgpu::VertexFormat::Float32x4,
-            }
-        ])
-        .depth_format(depth_format)
-        .sample_count(sample_count)
-        .build(device)
 }
 
 pub fn vertices_as_bytes_copy(data: &Vec<Vec3>) -> Vec<u8> {
@@ -128,7 +50,6 @@ pub(crate) fn matrices_as_bytes_copy(data: &Vec<Mat4>) -> Vec<u8> {
     }
     final_bytes
 }
-
 
 pub fn launch_rendox_app<T: 'static>(model: RendoxAppFn<T>) {
     nannou::app(model).event(event).update(update).run();
@@ -193,52 +114,9 @@ fn create_app<T: 'static>(
         _ => {}
     }
     window.set_cursor_visible(false);
-    let device = window.device();
-    let format = Frame::TEXTURE_FORMAT;
-    let msaa_samples = window.msaa_samples();
-    let window_size: glam::UVec2 = window.inner_size_pixels().into();
-
-    let vs_mod = device.create_shader_module(&wgpu::include_wgsl!("./shaders/vs.wgsl"));
-    let fs_mod = device.create_shader_module(&wgpu::include_wgsl!("./shaders/fs.wgsl"));
 
     let camera = crate::camera::Camera::new();
 
-    let depth_texture = wgpu::TextureBuilder::new()
-        .size([window_size.x, window_size.y])
-        .format(wgpu::TextureFormat::Depth32Float)
-        .usage(wgpu::TextureUsages::RENDER_ATTACHMENT)
-        .sample_count(msaa_samples)
-        .build(device);
-
-    let depth_texture_view = depth_texture.view().build();
-
-    let uniform_buffer = Uniforms::new_as_buffer(window_size, &camera, device);
-    let bind_group_layout = create_bind_group_layout(device);
-    let bind_group = create_bind_group(device, &bind_group_layout, &uniform_buffer);
-    let pipeline_layout = create_pipeline_layout(device, &bind_group_layout);
-    let render_pipeline = create_render_pipeline(
-        device,
-        &pipeline_layout,
-        &vs_mod,
-        &fs_mod,
-        format,
-        wgpu::TextureFormat::Depth32Float,
-        msaa_samples,
-    );
-
-    let mut graphics = Graphics::new(
-        // index_count,
-        // index_buffer,
-        // vertex_buffer,
-        // uv_buffer,
-        // normal_buffer,
-        // device,
-        uniform_buffer,
-        depth_texture,
-        depth_texture_view,
-        bind_group,
-        render_pipeline,
-    );
 
     println!("Use the `W`, `A`, `S`, `D`, `Q` and `E` keys to move the camera.");
     println!("Use the mouse to orient the pitch and yaw of the camera.");
@@ -246,21 +124,22 @@ fn create_app<T: 'static>(
 
     // let ret = Mesh::from_obj("./.objs/bat.obj");
 
-    let ret = graphics.load_mesh("./.objs/bat.obj");
-    match ret {
-        Err(e) => return Err(e),
-        Ok(mesh) => {
+    let mut graphics = Graphics::create(window.deref(), &camera);
+    // let ret = graphics.load_mesh("./.objs/bat.obj");
+    // match ret {
+    //     Err(e) => return Err(e),
+    //     Ok(mesh) => {
             Ok(App {
                 camera_is_active,
                 graphics: RefCell::new(graphics),
                 camera,
-                mesh,
+                // mesh,
                 user,
                 user_update,
                 egui_instance,
             })
-        }
-    }
+        // }
+    // }
 }
 
 impl<T> App<T> {

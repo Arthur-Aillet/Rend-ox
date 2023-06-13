@@ -11,13 +11,15 @@ use crate::app::App;
 pub struct MeshDescriptor {
     pub name: String,
     pub(crate) idx: usize,
+    pub(crate) shader: usize,
 }
 
 impl MeshDescriptor {
-    pub fn new(idx: usize, path: &str) -> MeshDescriptor {
+    pub fn new(idx: usize, path: &str, shader: usize) -> MeshDescriptor {
         MeshDescriptor {
             name: path.into(),
             idx,
+            shader,
         }
     }
 }

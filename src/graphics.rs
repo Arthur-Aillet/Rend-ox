@@ -1,13 +1,19 @@
 use std::collections::HashMap;
-use glam::Mat4;
-use nannou::wgpu;
+use std::mem::size_of;
+
 use crate::mesh::Mesh;
 use crate::Vec3;
 use crate::glam::Quat;
 use crate::app::{indices_as_bytes_copy, vertices_as_bytes_copy};
-use nannou::wgpu::util::DeviceExt;
 use crate::mesh::MeshDescriptor;
 use crate::error::RendError;
+use crate::uniforms::Uniforms;
+use crate::Mat4;
+
+use nannou::wgpu;
+use nannou::wgpu::util::DeviceExt;
+use nannou::Frame;
+use crate::camera::Camera;
 
 pub struct Graphics {
     //pub device: &wgpu::Device,
@@ -17,9 +23,86 @@ pub struct Graphics {
     pub bind_group: wgpu::BindGroup,
     pub render_pipeline: wgpu::RenderPipeline,
     pub draw_queue: HashMap<MeshDescriptor, Vec<Mat4>>,
+    pub shaders: HashMap<usize, wgpu::ShaderModule>,
     pub meshes: HashMap<usize, Mesh>,
     mesh_count: usize,
     // pub(crate) render_pass: Option<wgpu::RenderPass>,
+}
+
+fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    wgpu::BindGroupLayoutBuilder::new()
+        .uniform_buffer(wgpu::ShaderStages::VERTEX, false)
+        .build(device)
+}
+
+fn create_bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    uniform_buffer: &wgpu::Buffer,
+) -> wgpu::BindGroup {
+    wgpu::BindGroupBuilder::new()
+        .buffer::<Uniforms>(uniform_buffer, 0..1)
+        .build(device, layout)
+}
+
+fn create_pipeline_layout(
+    device: &wgpu::Device,
+    bind_group_layout: &wgpu::BindGroupLayout,
+) -> wgpu::PipelineLayout {
+    let desc = wgpu::PipelineLayoutDescriptor {
+        label: None,
+        bind_group_layouts: &[&bind_group_layout],
+        push_constant_ranges: &[],
+    };
+    device.create_pipeline_layout(&desc)
+}
+
+fn create_render_pipeline(
+    device: &wgpu::Device,
+    layout: &wgpu::PipelineLayout,
+    vs_mod: &wgpu::ShaderModule,
+    fs_mod: &wgpu::ShaderModule,
+    dst_format: wgpu::TextureFormat,
+    depth_format: wgpu::TextureFormat,
+    sample_count: u32,
+) -> wgpu::RenderPipeline {
+    wgpu::RenderPipelineBuilder::from_layout(layout, vs_mod)
+        .fragment_shader(&fs_mod)
+        .color_format(dst_format)
+        .color_blend(wgpu::BlendComponent::REPLACE)
+        .alpha_blend(wgpu::BlendComponent::REPLACE)
+        .add_vertex_buffer::<glam::Vec3>(&wgpu::vertex_attr_array![0 => Float32x3])
+        .add_vertex_buffer::<glam::Vec3>(&wgpu::vertex_attr_array![1 => Float32x3])
+        .add_vertex_buffer::<glam::Vec3>(&wgpu::vertex_attr_array![2 => Float32x3])
+        // instance matrix split into 4 vec4
+        .add_instance_buffer::<glam::Mat4>(&[
+            wgpu::VertexAttribute {
+                offset: 0,
+                shader_location: 5,
+                format: wgpu::VertexFormat::Float32x4,
+            },
+            // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
+            // for each vec4. We'll have to reassemble the mat4 in
+            // the shader.
+            wgpu::VertexAttribute {
+                offset: size_of::<[f32; 4]>() as wgpu::BufferAddress,
+                shader_location: 6,
+                format: wgpu::VertexFormat::Float32x4,
+            },
+            wgpu::VertexAttribute {
+                offset: size_of::<[f32; 8]>() as wgpu::BufferAddress,
+                shader_location: 7,
+                format: wgpu::VertexFormat::Float32x4,
+            },
+            wgpu::VertexAttribute {
+                offset: size_of::<[f32; 12]>() as wgpu::BufferAddress,
+                shader_location: 8,
+                format: wgpu::VertexFormat::Float32x4,
+            }
+        ])
+        .depth_format(depth_format)
+        .sample_count(sample_count)
+        .build(device)
 }
 
 impl Graphics {
@@ -39,23 +122,73 @@ impl Graphics {
             bind_group,
             render_pipeline,
             draw_queue: HashMap::new(),
+            shaders: HashMap::new(),
             meshes: HashMap::new(),
             mesh_count: 0,
             // render_pass : None,
         }
     }
 
+    pub fn create(window: &nannou::window::Window, camera: &Camera) -> Graphics {
+        let device = window.device();
+
+        let format = Frame::TEXTURE_FORMAT;
+        let msaa_samples = window.msaa_samples();
+        let window_size: glam::UVec2 = window.inner_size_pixels().into();
+
+        let vs_mod = device.create_shader_module(&wgpu::include_wgsl!("./shaders/vs.wgsl"));
+        let fs_mod = device.create_shader_module(&wgpu::include_wgsl!("./shaders/fs.wgsl"));
+
+        let depth_texture = wgpu::TextureBuilder::new()
+            .size([window_size.x, window_size.y])
+            .format(wgpu::TextureFormat::Depth32Float)
+            .usage(wgpu::TextureUsages::RENDER_ATTACHMENT)
+            .sample_count(msaa_samples)
+            .build(device);
+
+        let depth_texture_view = depth_texture.view().build();
+
+        let uniform_buffer = Uniforms::new_as_buffer(window_size, &camera, device);
+        let bind_group_layout = create_bind_group_layout(device);
+        let bind_group = create_bind_group(device, &bind_group_layout, &uniform_buffer);
+        let pipeline_layout = create_pipeline_layout(device, &bind_group_layout);
+        let render_pipeline = create_render_pipeline(
+            device,
+            &pipeline_layout,
+            &vs_mod,
+            &fs_mod,
+            format,
+            wgpu::TextureFormat::Depth32Float,
+            msaa_samples,
+        );
+
+        let graphics = Graphics::new(
+            // index_count,
+            // index_buffer,
+            // vertex_buffer,
+            // uv_buffer,
+            // normal_buffer,
+            // device,
+            uniform_buffer,
+            depth_texture,
+            depth_texture_view,
+            bind_group,
+            render_pipeline,
+        );
+        graphics
+    }
+
     pub fn load_mesh(&mut self, path: &str) -> Result<MeshDescriptor, Box<dyn std::error::Error>> {
         for (idx, mesh) in &self.meshes {
             if mesh.path == path {
-                return Ok(MeshDescriptor::new(*idx, path));
+                return Ok(MeshDescriptor::new(*idx, path, 0));
             }
         }
         match Mesh::from_obj(path) {
             Ok(mesh) => { self.meshes.insert(self.mesh_count, mesh); }
             Err(e) => { return Err(e) }
         }
-        let ret = MeshDescriptor::new(self.mesh_count, path);
+        let ret = MeshDescriptor::new(self.mesh_count, path, 0);
         self.mesh_count += 1;
         Ok(ret)
     }
