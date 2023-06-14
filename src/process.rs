@@ -60,6 +60,7 @@ fn three_d_view_rendering(
 ) {
     let depth_size = graphics.depth_texture.size();
     let device = frame.device_queue_pair().device();
+    graphics.refresh_shaders(device);
     let frame_size = frame.texture_size();
     if frame_size != depth_size {
         let sample_count = frame.texture_msaa_samples();
@@ -86,6 +87,7 @@ fn three_d_view_rendering(
     );
 
     let mut buffers: Vec<wgpu::Buffer> = vec![];
+    let mut shaders: Vec<usize> = vec![];
     let mut instance_buffers: Vec<wgpu::Buffer> = vec![];
     let mut counts: Vec<usize> = vec![];
     let mut all_instances: Vec<Vec<Mat4>> = vec![]; //= vec![Mat4::from_rotation_x(std::f32::consts::PI * 0.5), Mat4::from_translation(Vec3::new(2., 0., 0.))];
@@ -93,6 +95,7 @@ fn three_d_view_rendering(
     for (md, instances) in &graphics.draw_queue {
         if let Some(mesh) = graphics.meshes.get(&md.idx) {
             graphics.draw(device, &mut buffers, &mut counts, mesh);
+            shaders.push(md.shader);
             all_instances.push(instances.clone());
             let raw_instance_mat = matrices_as_bytes_copy(&instances);
             instance_buffers.push(device.create_buffer_init(&wgpu::BufferInitDescriptor {
@@ -110,17 +113,19 @@ fn three_d_view_rendering(
             .depth_stencil_attachment(&graphics.depth_texture_view, |depth| depth)
             .begin(&mut encoder);
         render_pass.set_bind_group(0, &graphics.bind_group, &[]);
-        render_pass.set_pipeline(&graphics.render_pipeline);
+
 
         let mut count = counts.iter();
+        let mut shader = shaders.iter();
         let mut instance = all_instances.iter();
         let mut instance_buffer = instance_buffers.iter();
         for i in (0..buffers.len()).step_by(4) {
-            render_pass.set_index_buffer(buffers[i].slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.set_vertex_buffer(0, buffers[i + 1].slice(..));
-            render_pass.set_vertex_buffer(1, buffers[i + 2].slice(..));
-            render_pass.set_vertex_buffer(2, buffers[i + 3].slice(..));
-            if let (Some(c), Some(inst), Some(inst_buff)) = (count.next(), instance.next(), instance_buffer.next()) {
+            if let (Some(c), Some(inst), Some(inst_buff), Some(s)) = (count.next(), instance.next(), instance_buffer.next(), shader.next()) {
+                render_pass.set_pipeline(&graphics.render_pipelines[s]);
+                render_pass.set_index_buffer(buffers[i].slice(..), wgpu::IndexFormat::Uint16);
+                render_pass.set_vertex_buffer(0, buffers[i + 1].slice(..));
+                render_pass.set_vertex_buffer(1, buffers[i + 2].slice(..));
+                render_pass.set_vertex_buffer(2, buffers[i + 3].slice(..));
                 render_pass.set_vertex_buffer(3, inst_buff.slice(..));
                 render_pass.draw_indexed(0..*c as u32, 0, 0..inst.len() as u32);
             }

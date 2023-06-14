@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem::size_of;
 
@@ -13,19 +14,26 @@ use crate::Mat4;
 use nannou::wgpu;
 use nannou::wgpu::util::DeviceExt;
 use nannou::Frame;
+use nannou::text::font::default;
+use nannou::wgpu::ShaderModule;
 use crate::camera::Camera;
 
 pub struct Graphics {
-    //pub device: &wgpu::Device,
+    // pub device: &'static wgpu::Device,
     pub uniform_buffer: wgpu::Buffer,
     pub depth_texture: wgpu::Texture,
     pub depth_texture_view: wgpu::TextureView,
     pub bind_group: wgpu::BindGroup,
-    pub render_pipeline: wgpu::RenderPipeline,
-    pub draw_queue: HashMap<MeshDescriptor, Vec<Mat4>>,
+    pub render_pipelines: HashMap<usize, wgpu::RenderPipeline>,
+    pipeline_layout: wgpu::PipelineLayout,
+    pub(crate) draw_queue: HashMap<MeshDescriptor, Vec<Mat4>>,
     pub shaders: HashMap<usize, wgpu::ShaderModule>,
+    pub shader_sources: HashMap<usize, wgpu::ShaderModuleDescriptor<'static>>,
     pub meshes: HashMap<usize, Mesh>,
     mesh_count: usize,
+    default_shader: usize,
+    vs_mod: wgpu::ShaderModule,
+    msaa: u32,
     // pub(crate) render_pass: Option<wgpu::RenderPass>,
 }
 
@@ -112,7 +120,11 @@ impl Graphics {
         depth_texture: wgpu::Texture,
         depth_texture_view: wgpu::TextureView,
         bind_group: wgpu::BindGroup,
-        render_pipeline: wgpu::RenderPipeline
+        pipeline_layout: wgpu::PipelineLayout,
+        // render_pipelines: HashMap<usize, wgpu::RenderPipeline>,
+        default_shader: usize,
+        vs_mod: wgpu::ShaderModule,
+        msaa: u32,
     ) -> Graphics {
         Graphics {
             //device,
@@ -120,11 +132,16 @@ impl Graphics {
             depth_texture,
             depth_texture_view,
             bind_group,
-            render_pipeline,
+            render_pipelines: HashMap::new(),
+            pipeline_layout,
             draw_queue: HashMap::new(),
             shaders: HashMap::new(),
+            shader_sources: HashMap::new(),
             meshes: HashMap::new(),
             mesh_count: 0,
+            default_shader,
+            vs_mod,
+            msaa,
             // render_pass : None,
         }
     }
@@ -137,7 +154,7 @@ impl Graphics {
         let window_size: glam::UVec2 = window.inner_size_pixels().into();
 
         let vs_mod = device.create_shader_module(&wgpu::include_wgsl!("./shaders/vs.wgsl"));
-        let fs_mod = device.create_shader_module(&wgpu::include_wgsl!("./shaders/fs.wgsl"));
+        // let fs_mod = device.create_shader_module(&wgpu::include_wgsl!("./shaders/fs.wgsl"));
 
         let depth_texture = wgpu::TextureBuilder::new()
             .size([window_size.x, window_size.y])
@@ -152,46 +169,108 @@ impl Graphics {
         let bind_group_layout = create_bind_group_layout(device);
         let bind_group = create_bind_group(device, &bind_group_layout, &uniform_buffer);
         let pipeline_layout = create_pipeline_layout(device, &bind_group_layout);
-        let render_pipeline = create_render_pipeline(
-            device,
-            &pipeline_layout,
-            &vs_mod,
-            &fs_mod,
-            format,
-            wgpu::TextureFormat::Depth32Float,
-            msaa_samples,
-        );
+        // let mut render_pipelines = HashMap::new();
+        // render_pipelines.insert() create_render_pipeline(
+        //     device,
+        //     &pipeline_layout,
+        //     &vs_mod,
+        //     &fs_mod,
+        //     format,
+        //     wgpu::TextureFormat::Depth32Float,
+        //     msaa_samples,
+        // )];
 
-        let graphics = Graphics::new(
+        let mut graphics = Graphics::new(
             // index_count,
             // index_buffer,
             // vertex_buffer,
             // uv_buffer,
             // normal_buffer,
-            // device,
+            //device,
             uniform_buffer,
             depth_texture,
             depth_texture_view,
             bind_group,
-            render_pipeline,
+            // render_pipelines,
+            pipeline_layout,
+            0,
+            vs_mod,
+            msaa_samples,
         );
+        if let Ok(default_shader) = graphics.load_shader("./src/rend_ox/src/shaders/fs.wgsl") {
+            graphics.default_shader = default_shader;
+            graphics.refresh_shaders(device);
+            println!("loaded fs as {}", default_shader);
+        } else {
+            println!("rend-ox: warning: default shader failed to load");
+        }
         graphics
+    }
+
+    pub fn load_shader(&mut self, path: &str) -> Result<usize, Box<dyn std::error::Error>> {
+        return match std::fs::read_to_string(path) {
+            Ok(shader_source) => {
+                let idx = self.shader_sources.len();
+                self.shader_sources.insert(idx,
+                                           wgpu::ShaderModuleDescriptor {
+                                               label: None,
+                                               source: wgpu::ShaderSource::Wgsl(shader_source.into()),
+                                           });
+                println!("LOAD loaded {} as {}", path, idx);
+                Ok(idx)
+            }
+            Err(e) => { println!("LOAD FAILED: {}", e); Err(Box::new(e))}
+        }
+
+    }
+
+    pub fn refresh_shaders(&mut self, device: &wgpu::Device) {
+        if self.shader_sources.len() > self.shaders.len() {
+            for (idx, source) in &self.shader_sources {
+                if !self.shaders.contains_key(&idx) {
+                    let fs_mod = device.create_shader_module(&source);
+                    self.render_pipelines.insert(*idx, self.create_render_pipeline_for_shader(device, &fs_mod));
+                    self.shaders.insert(*idx, fs_mod);
+                }
+            }
+        }
+    }
+
+    pub fn bind_shader_to_mesh(&self, md: &mut MeshDescriptor, shader : &usize) -> bool {
+        if self.shader_sources.contains_key(shader) {
+            md.shader = *shader;
+            return true;
+        }
+        false
     }
 
     pub fn load_mesh(&mut self, path: &str) -> Result<MeshDescriptor, Box<dyn std::error::Error>> {
         for (idx, mesh) in &self.meshes {
             if mesh.path == path {
-                return Ok(MeshDescriptor::new(*idx, path, 0));
+                return Ok(MeshDescriptor::new(*idx, path, self.default_shader));
             }
         }
         match Mesh::from_obj(path) {
             Ok(mesh) => { self.meshes.insert(self.mesh_count, mesh); }
             Err(e) => { return Err(e) }
         }
-        let ret = MeshDescriptor::new(self.mesh_count, path, 0);
+        let ret = MeshDescriptor::new(self.mesh_count, path, self.default_shader);
         self.mesh_count += 1;
         Ok(ret)
     }
+
+    fn create_render_pipeline_for_shader(&self, device: &wgpu::Device, shader: &wgpu::ShaderModule) -> wgpu::RenderPipeline {
+        create_render_pipeline(
+            device,
+            &self.pipeline_layout,
+            &self.vs_mod,
+            shader,
+            wgpu::RenderPipelineBuilder::DEFAULT_COLOR_FORMAT,
+            wgpu::RenderPipelineBuilder::DEFAULT_DEPTH_FORMAT,
+            self.msaa,
+        )
+    }
+
 
     pub fn draw(&self, device: &wgpu::Device, buffers: &mut Vec<wgpu::Buffer>, counts: &mut Vec<usize>, mesh : &Mesh) -> bool {
         let indices_bytes = indices_as_bytes_copy(&mesh.faces);
