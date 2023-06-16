@@ -157,8 +157,10 @@ impl<T> App<T> {
         false
     }
     pub fn draw_instances(&self, md: &MeshDescriptor, mut instances: Vec<Mat4>, colors: Vec<Vec3>) -> bool {
-        let mut c = colors;
-        c.append(&mut vec![Vec3::new(1., 1., 1.); instances.len() - c.len()]);
+        let mut c = match colors.len() {
+            0 => vec![Vec3::new(1., 1., 1.)],
+            _ => colors
+        }.iter().cloned().cycle().take(instances.len()).collect();
         if let Ok(mut g) = self.graphics.try_borrow_mut() {
             if let Some((old_col, old_inst)) = g.draw_queue.get_mut(&md) {
                 old_col.append(&mut c);
