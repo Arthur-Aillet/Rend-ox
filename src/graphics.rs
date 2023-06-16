@@ -26,7 +26,7 @@ pub struct Graphics {
     pub bind_group: wgpu::BindGroup,
     pub render_pipelines: HashMap<usize, wgpu::RenderPipeline>,
     pipeline_layout: wgpu::PipelineLayout,
-    pub(crate) draw_queue: HashMap<MeshDescriptor, Vec<Mat4>>,
+    pub(crate) draw_queue: HashMap<MeshDescriptor, (Vec<Vec3>, Vec<Mat4>)>,
     pub shaders: HashMap<usize, wgpu::ShaderModule>,
     pub shader_sources: HashMap<usize, wgpu::ShaderModuleDescriptor<'static>>,
     pub meshes: HashMap<usize, Mesh>,
@@ -83,6 +83,7 @@ fn create_render_pipeline(
         .add_vertex_buffer::<glam::Vec3>(&wgpu::vertex_attr_array![1 => Float32x3])
         .add_vertex_buffer::<glam::Vec3>(&wgpu::vertex_attr_array![2 => Float32x3])
         // instance matrix split into 4 vec4
+        .add_instance_buffer::<glam::Vec3>(&wgpu::vertex_attr_array![9 => Float32x3])
         .add_instance_buffer::<glam::Mat4>(&[
             wgpu::VertexAttribute {
                 offset: 0,

@@ -143,24 +143,28 @@ fn create_app<T: 'static>(
 }
 
 impl<T> App<T> {
-    pub fn draw(&self, md: &MeshDescriptor) -> bool {
+    pub fn draw(&self, md: &MeshDescriptor, color: Vec3) -> bool {
         if let Ok(mut g) = self.graphics.try_borrow_mut() {
-            if let Some(old) = g.draw_queue.get_mut(&md) {
-                old.append(&mut vec![Mat4::IDENTITY]);
+            if let Some((old_col, old_inst)) = g.draw_queue.get_mut(&md) {
+                old_col.append(&mut vec![color]);
+                old_inst.append(&mut vec![Mat4::IDENTITY]);
             } else {
-                g.draw_queue.insert(md.clone(), vec![Mat4::IDENTITY]);
+                g.draw_queue.insert(md.clone(), (vec![color], vec![Mat4::IDENTITY]));
             }
             return true;
         }
         println!("Rendox: failed draw call of {}", md.name);
         false
     }
-    pub fn draw_instances(&self, md: &MeshDescriptor, mut instances: Vec<Mat4>) -> bool {
+    pub fn draw_instances(&self, md: &MeshDescriptor, mut instances: Vec<Mat4>, colors: Vec<Vec3>) -> bool {
+        let mut c = colors;
+        c.append(&mut vec![Vec3::new(1., 1., 1.); instances.len() - c.len()]);
         if let Ok(mut g) = self.graphics.try_borrow_mut() {
-            if let Some(old) = g.draw_queue.get_mut(&md) {
-                old.append(&mut instances);
+            if let Some((old_col, old_inst)) = g.draw_queue.get_mut(&md) {
+                old_col.append(&mut c);
+                old_inst.append(&mut instances);
             } else {
-                g.draw_queue.insert(md.clone(), instances);
+                g.draw_queue.insert(md.clone(), (c, instances));
             }
             return true;
         }

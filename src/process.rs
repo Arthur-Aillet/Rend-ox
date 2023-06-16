@@ -2,7 +2,7 @@ use std::cell::RefMut;
 
 use glam::Mat4;
 use crate::Vec3;
-use crate::app::{App, matrices_as_bytes_copy};
+use crate::app::{App, vertices_as_bytes_copy, matrices_as_bytes_copy};
 use crate::camera::Camera;
 use crate::camera_controller::move_camera;
 use crate::graphics::Graphics;
@@ -89,15 +89,22 @@ fn three_d_view_rendering(
     let mut buffers: Vec<wgpu::Buffer> = vec![];
     let mut shaders: Vec<usize> = vec![];
     let mut instance_buffers: Vec<wgpu::Buffer> = vec![];
+    let mut inst_color_buffers: Vec<wgpu::Buffer> = vec![];
     let mut counts: Vec<usize> = vec![];
     let mut all_instances: Vec<Vec<Mat4>> = vec![]; //= vec![Mat4::from_rotation_x(std::f32::consts::PI * 0.5), Mat4::from_translation(Vec3::new(2., 0., 0.))];
 
-    for (md, instances) in &graphics.draw_queue {
+    for (md, (colors, instances)) in &graphics.draw_queue {
         if let Some(mesh) = graphics.meshes.get(&md.idx) {
             graphics.draw(device, &mut buffers, &mut counts, mesh);
             shaders.push(md.shader);
             all_instances.push(instances.clone());
-            let raw_instance_mat = matrices_as_bytes_copy(&instances);
+            let raw_instance_col = vertices_as_bytes_copy(colors);
+            let raw_instance_mat = matrices_as_bytes_copy(instances);
+            inst_color_buffers.push(device.create_buffer_init(&wgpu::BufferInitDescriptor {
+                label: None,
+                contents: &*raw_instance_col,
+                usage: wgpu::BufferUsages::VERTEX,
+            }));
             instance_buffers.push(device.create_buffer_init(&wgpu::BufferInitDescriptor {
                 label: None,
                 contents: &*raw_instance_mat,
@@ -119,14 +126,16 @@ fn three_d_view_rendering(
         let mut shader = shaders.iter();
         let mut instance = all_instances.iter();
         let mut instance_buffer = instance_buffers.iter();
+        let mut instance_color = inst_color_buffers.iter();
         for i in (0..buffers.len()).step_by(4) {
-            if let (Some(c), Some(inst), Some(inst_buff), Some(s)) = (count.next(), instance.next(), instance_buffer.next(), shader.next()) {
+            if let (Some(c), Some(inst), Some(inst_buff), Some(inst_color), Some(s)) = (count.next(), instance.next(), instance_buffer.next(), instance_color.next(), shader.next()) {
                 render_pass.set_pipeline(&graphics.render_pipelines[s]);
                 render_pass.set_index_buffer(buffers[i].slice(..), wgpu::IndexFormat::Uint16);
                 render_pass.set_vertex_buffer(0, buffers[i + 1].slice(..));
                 render_pass.set_vertex_buffer(1, buffers[i + 2].slice(..));
                 render_pass.set_vertex_buffer(2, buffers[i + 3].slice(..));
-                render_pass.set_vertex_buffer(3, inst_buff.slice(..));
+                render_pass.set_vertex_buffer(3, inst_color.slice(..));
+                render_pass.set_vertex_buffer(4, inst_buff.slice(..));
                 render_pass.draw_indexed(0..*c as u32, 0, 0..inst.len() as u32);
             }
 
