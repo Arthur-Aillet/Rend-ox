@@ -1,22 +1,16 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem::size_of;
 
-use crate::mesh::Mesh;
-use crate::Vec3;
-use crate::glam::Quat;
 use crate::app::{indices_as_bytes_copy, vertices_as_bytes_copy};
+use crate::mesh::Mesh;
 use crate::mesh::MeshDescriptor;
-use crate::error::RendError;
 use crate::uniforms::Uniforms;
 use crate::Mat4;
+use crate::Vec3;
 
+use crate::camera::Camera;
 use nannou::wgpu;
 use nannou::wgpu::util::DeviceExt;
-use nannou::Frame;
-use nannou::text::font::default;
-use nannou::wgpu::ShaderModule;
-use crate::camera::Camera;
 
 pub struct Graphics {
     // pub device: &'static wgpu::Device,
@@ -107,7 +101,7 @@ fn create_render_pipeline(
                 offset: size_of::<[f32; 12]>() as wgpu::BufferAddress,
                 shader_location: 8,
                 format: wgpu::VertexFormat::Float32x4,
-            }
+            },
         ])
         .depth_format(depth_format)
         .sample_count(sample_count)
@@ -150,7 +144,6 @@ impl Graphics {
     pub fn create(window: &nannou::window::Window, camera: &Camera) -> Graphics {
         let device = window.device();
 
-        let format = Frame::TEXTURE_FORMAT;
         let msaa_samples = window.msaa_samples();
         let window_size: glam::UVec2 = window.inner_size_pixels().into();
 
@@ -212,17 +205,21 @@ impl Graphics {
         return match std::fs::read_to_string(path) {
             Ok(shader_source) => {
                 let idx = self.shader_sources.len();
-                self.shader_sources.insert(idx,
-                                           wgpu::ShaderModuleDescriptor {
-                                               label: None,
-                                               source: wgpu::ShaderSource::Wgsl(shader_source.into()),
-                                           });
+                self.shader_sources.insert(
+                    idx,
+                    wgpu::ShaderModuleDescriptor {
+                        label: None,
+                        source: wgpu::ShaderSource::Wgsl(shader_source.into()),
+                    },
+                );
                 println!("LOAD loaded {} as {}", path, idx);
                 Ok(idx)
             }
-            Err(e) => { println!("LOAD FAILED: {}", e); Err(Box::new(e))}
-        }
-
+            Err(e) => {
+                println!("LOAD FAILED: {}", e);
+                Err(Box::new(e))
+            }
+        };
     }
 
     pub fn refresh_shaders(&mut self, device: &wgpu::Device) {
@@ -230,14 +227,17 @@ impl Graphics {
             for (idx, source) in &self.shader_sources {
                 if !self.shaders.contains_key(&idx) {
                     let fs_mod = device.create_shader_module(&source);
-                    self.render_pipelines.insert(*idx, self.create_render_pipeline_for_shader(device, &fs_mod));
+                    self.render_pipelines.insert(
+                        *idx,
+                        self.create_render_pipeline_for_shader(device, &fs_mod),
+                    );
                     self.shaders.insert(*idx, fs_mod);
                 }
             }
         }
     }
 
-    pub fn bind_shader_to_mesh(&self, md: &mut MeshDescriptor, shader : &usize) -> bool {
+    pub fn bind_shader_to_mesh(&self, md: &mut MeshDescriptor, shader: &usize) -> bool {
         if self.shader_sources.contains_key(shader) {
             md.shader = *shader;
             return true;
@@ -252,15 +252,21 @@ impl Graphics {
             }
         }
         match Mesh::from_obj(path) {
-            Ok(mesh) => { self.meshes.insert(self.mesh_count, mesh); }
-            Err(e) => { return Err(e) }
+            Ok(mesh) => {
+                self.meshes.insert(self.mesh_count, mesh);
+            }
+            Err(e) => return Err(e),
         }
         let ret = MeshDescriptor::new(self.mesh_count, path, self.default_shader);
         self.mesh_count += 1;
         Ok(ret)
     }
 
-    fn create_render_pipeline_for_shader(&self, device: &wgpu::Device, shader: &wgpu::ShaderModule) -> wgpu::RenderPipeline {
+    fn create_render_pipeline_for_shader(
+        &self,
+        device: &wgpu::Device,
+        shader: &wgpu::ShaderModule,
+    ) -> wgpu::RenderPipeline {
         create_render_pipeline(
             device,
             &self.pipeline_layout,
@@ -272,8 +278,13 @@ impl Graphics {
         )
     }
 
-
-    pub fn draw(&self, device: &wgpu::Device, buffers: &mut Vec<wgpu::Buffer>, counts: &mut Vec<usize>, mesh : &Mesh) -> bool {
+    pub fn draw(
+        &self,
+        device: &wgpu::Device,
+        buffers: &mut Vec<wgpu::Buffer>,
+        counts: &mut Vec<usize>,
+        mesh: &Mesh,
+    ) -> bool {
         let indices_bytes = indices_as_bytes_copy(&mesh.faces);
         let vertices_bytes = vertices_as_bytes_copy(&mesh.vertices);
         let uvs_bytes = vertices_as_bytes_copy(&mesh.uvs);
@@ -303,48 +314,47 @@ impl Graphics {
             usage: wgpu::BufferUsages::VERTEX,
         }));
 
-
-         return true;
+        return true;
     }
 
     // pub fn draw_instanced(&mut self, mesh : Mesh, instances: Vec<(Vec3, Quat)>) -> bool {
-        // if let Some(render_pass) = self.render_pass {
-        //     let index_count = mesh.faces.len();
-        //     let indices_bytes = indices_as_bytes_copy(&mesh.faces);
-        //     let vertices_bytes = vertices_as_bytes_copy(&mesh.vertices);
-        //     let uvs_bytes = vertices_as_bytes_copy(&mesh.uvs);
-        //     let normals_bytes = vertices_as_bytes_copy(&mesh.normals);
-        //
-        //     let index_buffer = self.device.create_buffer_init(&wgpu::BufferInitDescriptor {
-        //         label: None,
-        //         contents: &*indices_bytes,
-        //         usage: wgpu::BufferUsages::INDEX,
-        //     });
-        //     let vertex_buffer = self.device.create_buffer_init(&wgpu::BufferInitDescriptor {
-        //         label: None,
-        //         contents: &*vertices_bytes,
-        //         usage: wgpu::BufferUsages::VERTEX,
-        //     });
-        //     let uv_buffer = self.device.create_buffer_init(&wgpu::BufferInitDescriptor {
-        //         label: None,
-        //         contents: &*uvs_bytes,
-        //         usage: wgpu::BufferUsages::VERTEX,
-        //     });
-        //     let normal_buffer = self.device.create_buffer_init(&wgpu::BufferInitDescriptor {
-        //         label: None,
-        //         contents: &*normals_bytes,
-        //         usage: wgpu::BufferUsages::VERTEX,
-        //     });
-        //
-        //     render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        //     render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        //     render_pass.set_vertex_buffer(1, uv_buffer.slice(..));
-        //     render_pass.set_vertex_buffer(2, normal_buffer.slice(..));
-        //     render_pass.draw_indexed(0..index_count as u32, 0, 0..1);
-        //     true
-        // } else {
-        //     false
-        // }
+    // if let Some(render_pass) = self.render_pass {
+    //     let index_count = mesh.faces.len();
+    //     let indices_bytes = indices_as_bytes_copy(&mesh.faces);
+    //     let vertices_bytes = vertices_as_bytes_copy(&mesh.vertices);
+    //     let uvs_bytes = vertices_as_bytes_copy(&mesh.uvs);
+    //     let normals_bytes = vertices_as_bytes_copy(&mesh.normals);
+    //
+    //     let index_buffer = self.device.create_buffer_init(&wgpu::BufferInitDescriptor {
+    //         label: None,
+    //         contents: &*indices_bytes,
+    //         usage: wgpu::BufferUsages::INDEX,
+    //     });
+    //     let vertex_buffer = self.device.create_buffer_init(&wgpu::BufferInitDescriptor {
+    //         label: None,
+    //         contents: &*vertices_bytes,
+    //         usage: wgpu::BufferUsages::VERTEX,
+    //     });
+    //     let uv_buffer = self.device.create_buffer_init(&wgpu::BufferInitDescriptor {
+    //         label: None,
+    //         contents: &*uvs_bytes,
+    //         usage: wgpu::BufferUsages::VERTEX,
+    //     });
+    //     let normal_buffer = self.device.create_buffer_init(&wgpu::BufferInitDescriptor {
+    //         label: None,
+    //         contents: &*normals_bytes,
+    //         usage: wgpu::BufferUsages::VERTEX,
+    //     });
+    //
+    //     render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+    //     render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+    //     render_pass.set_vertex_buffer(1, uv_buffer.slice(..));
+    //     render_pass.set_vertex_buffer(2, normal_buffer.slice(..));
+    //     render_pass.draw_indexed(0..index_count as u32, 0, 0..1);
+    //     true
+    // } else {
+    //     false
+    // }
     //     false
     // }
 }

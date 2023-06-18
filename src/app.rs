@@ -2,15 +2,14 @@ use std::cell::RefCell;
 use std::ops::Deref;
 
 use crate::Vec3;
-use nannou;
-use nannou::wgpu;
-use nannou_egui::Egui;
 use glam::Mat4;
+use nannou;
+use nannou_egui::Egui;
 
 use crate::camera_controller::key_pressed;
 use crate::graphics::Graphics;
-use crate::mesh::{Mesh, MeshDescriptor};
-use crate::process::{view, event, update};
+use crate::mesh::MeshDescriptor;
+use crate::process::{event, update, view};
 
 pub struct App<T> {
     pub camera_is_active: bool,
@@ -19,7 +18,7 @@ pub struct App<T> {
     // pub mesh: MeshDescriptor,
     pub egui_instance: Egui,
     pub user: T,
-    pub user_update: UpdateFn<T>
+    pub user_update: UpdateFn<T>,
 }
 
 pub fn vertices_as_bytes_copy(data: &Vec<Vec3>) -> Vec<u8> {
@@ -68,13 +67,17 @@ pub fn app<T: 'static>(nannou_app: &nannou::App, user: T, user_update: UpdateFn<
     }
 }
 
-fn raw_window_event<T>(_app: &nannou::App, model: &mut App<T>, event: &nannou::winit::event::WindowEvent) {
+fn raw_window_event<T>(
+    _app: &nannou::App,
+    model: &mut App<T>,
+    event: &nannou::winit::event::WindowEvent,
+) {
     model.egui_instance.handle_raw_event(event);
 }
 fn create_app<T: 'static>(
     nannou_app: &nannou::App,
     user: T,
-    user_update: UpdateFn<T>
+    user_update: UpdateFn<T>,
 ) -> Result<App<T>, Box<dyn std::error::Error>> {
     let w_id = match nannou_app
         .new_window()
@@ -103,7 +106,6 @@ fn create_app<T: 'static>(
 
     let egui_instance = Egui::from_window(&window);
 
-
     let camera_is_active = true;
     match window.set_cursor_grab(true) {
         Err(_err) => {
@@ -117,28 +119,27 @@ fn create_app<T: 'static>(
 
     let camera = crate::camera::Camera::new();
 
-
     println!("Use the `W`, `A`, `S`, `D`, `Q` and `E` keys to move the camera.");
     println!("Use the mouse to orient the pitch and yaw of the camera.");
     println!("Press the `Space` key to toggle camera mode.");
 
     // let ret = Mesh::from_obj("./.objs/bat.obj");
 
-    let mut graphics = Graphics::create(window.deref(), &camera);
+    let graphics = Graphics::create(window.deref(), &camera);
     // let ret = graphics.load_mesh("./.objs/bat.obj");
     // match ret {
     //     Err(e) => return Err(e),
     //     Ok(mesh) => {
-            Ok(App {
-                camera_is_active,
-                graphics: RefCell::new(graphics),
-                camera,
-                // mesh,
-                user,
-                user_update,
-                egui_instance,
-            })
-        // }
+    Ok(App {
+        camera_is_active,
+        graphics: RefCell::new(graphics),
+        camera,
+        // mesh,
+        user,
+        user_update,
+        egui_instance,
+    })
+    // }
     // }
 }
 
@@ -149,14 +150,20 @@ impl<T> App<T> {
                 old_col.append(&mut vec![color]);
                 old_inst.append(&mut vec![Mat4::IDENTITY]);
             } else {
-                g.draw_queue.insert(md.clone(), (vec![color], vec![Mat4::IDENTITY]));
+                g.draw_queue
+                    .insert(md.clone(), (vec![color], vec![Mat4::IDENTITY]));
             }
             return true;
         }
         println!("Rendox: failed draw call of {}", md.name);
         false
     }
-    pub fn draw_instances(&self, md: &MeshDescriptor, mut instances: Vec<Mat4>, colors: Vec<Vec3>) -> bool {
+    pub fn draw_instances(
+        &self,
+        md: &MeshDescriptor,
+        mut instances: Vec<Mat4>,
+        colors: Vec<Vec3>,
+    ) -> bool {
         let mut c = colors;
         c.append(&mut vec![Vec3::new(1., 1., 1.); instances.len() - c.len()]);
         if let Ok(mut g) = self.graphics.try_borrow_mut() {

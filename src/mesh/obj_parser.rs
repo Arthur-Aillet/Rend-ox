@@ -3,8 +3,8 @@ use crate::Vec3;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader};
 
-use super::{Indices, Triangle, Normals, Vertices};
 use super::solver::solve_indices;
+use super::{Indices, Normals, Triangle, Vertices};
 
 pub struct OBJMesh {
     pub(crate) triangles: Vec<Triangle>,
@@ -12,7 +12,7 @@ pub struct OBJMesh {
     pub(crate) uvs: Vertices,
     pub(crate) normals: Normals,
     pub(crate) calculated: Normals,
-    pub(crate) materials: Vec<Option<String>>,
+    pub(crate) _materials: Vec<Option<String>>,
 }
 
 impl OBJMesh {
@@ -23,7 +23,7 @@ impl OBJMesh {
             normals: vec![],
             calculated: vec![],
             uvs: vec![],
-            materials: vec![],
+            _materials: vec![],
         }
     }
 
@@ -202,7 +202,7 @@ impl OBJMesh {
             normals,
             calculated_normal,
             textures,
-            group : None,
+            _group: None,
         };
         self.calculated
             .push(self.normal_from_indexes(&snd_triangle));

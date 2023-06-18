@@ -7,29 +7,28 @@
 //!     - material slots
 //! planned support for bone animation
 
-use std::cmp::Ordering;
+use crate::error::RendError;
 use crate::mesh::{Indices, Normals, Vertices};
 use crate::Vec3;
-use crate::error::RendError;
+use std::cmp::Ordering;
 
-use glam::Mat4;
 use crate::mesh::obj_parser::OBJMesh;
+use glam::Mat4;
 
 /// A Bone used for animation
 /// Not fully implemented, format subject to change
 #[derive(Clone, Debug)]
 pub struct Bone {
     pub(crate) idx: u32,
-    pub(crate) pose: Mat4,
+    pub(crate) _pose: Mat4,
     // pub(crate) rest: Mat4,
-    pub(crate) parent: i32,
+    pub(crate) _parent: i32,
 }
 
 impl PartialEq for Bone {
     fn eq(&self, other: &Self) -> bool {
         self.idx == other.idx
     }
-
 }
 
 impl PartialOrd for Bone {
@@ -44,7 +43,7 @@ pub(crate) struct Triangle {
     pub(crate) normals: Option<[usize; 3]>,
     pub(crate) calculated_normal: usize,
     pub(crate) textures: Option<[usize; 3]>,
-    pub(crate) group: Option<u32>,
+    pub(crate) _group: Option<u32>,
 }
 
 impl Triangle {
@@ -61,7 +60,7 @@ impl Triangle {
             normals: Some([3; 3]),
             calculated_normal: 0,
             textures: None,
-            group: None,
+            _group: None,
         }
     }
 }
@@ -79,10 +78,10 @@ pub struct Mesh {
     pub(crate) vertices: Vertices,
     pub(crate) normals: Normals,
     pub(crate) uvs: Vertices,
-    pub(crate) weights: Vec<Vec<(u32, f32)>>,
-    pub(crate) materials: Vec<Option<String>>,
-    pub(crate) groups: Vec<(u32, String)>,
-    pub(crate) bones: Vec<Bone>,
+    pub(crate) _weights: Vec<Vec<(u32, f32)>>,
+    pub(crate) _materials: Vec<Option<String>>,
+    pub(crate) _groups: Vec<(u32, String)>,
+    pub(crate) _bones: Vec<Bone>,
 }
 
 impl Mesh {
@@ -93,10 +92,10 @@ impl Mesh {
             vertices: vec![],
             uvs: vec![],
             normals: vec![],
-            materials: vec![],
-            groups: vec![],
-            weights: vec![],
-            bones: vec![],
+            _materials: vec![],
+            _groups: vec![],
+            _weights: vec![],
+            _bones: vec![],
         }
     }
 
@@ -120,10 +119,10 @@ impl Mesh {
             vertices,
             uvs,
             normals,
-            materials: vec![],
-            groups: vec![],
-            weights: vec![],
-            bones: vec![],
+            _materials: vec![],
+            _groups: vec![],
+            _weights: vec![],
+            _bones: vec![],
         })
     }
 }

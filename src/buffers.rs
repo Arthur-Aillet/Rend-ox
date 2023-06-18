@@ -1,7 +1,7 @@
 use glam::Vec3;
 use nannou::wgpu;
-use wgpu::Device;
 use wgpu::util::DeviceExt;
+use wgpu::Device;
 
 use crate::obj::{Indices, Mesh, Normals, Vertices};
 
@@ -44,7 +44,7 @@ impl Buffers {
             normals: vec![],
         }
     }
-    
+
     pub(crate) fn load_mesh(&mut self, mesh: &mut Mesh) {
         let buffers = mesh.as_buffers();
 
@@ -54,7 +54,10 @@ impl Buffers {
         self.normals.extend(buffers.3);
     }
 
-    pub(crate) fn as_wgpu_buffers(&self, device: &Device) -> (wgpu::Buffer, wgpu::Buffer, wgpu::Buffer, wgpu::Buffer) {
+    pub(crate) fn as_wgpu_buffers(
+        &self,
+        device: &Device,
+    ) -> (wgpu::Buffer, wgpu::Buffer, wgpu::Buffer, wgpu::Buffer) {
         let indices_bytes = indices_as_bytes_copy(&self.indices);
         let vertices_bytes = vertices_as_bytes_copy(&self.vertices);
         let uvs_bytes = vertices_as_bytes_copy(&self.uvs);
@@ -83,4 +86,3 @@ impl Buffers {
         (index_buffer, vertex_buffer, uv_buffer, normal_buffer)
     }
 }
-

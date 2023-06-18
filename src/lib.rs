@@ -12,5 +12,5 @@ pub use nannou;
 pub use nannou::wgpu;
 pub use nannou_egui;
 
-pub use crate::glam::Vec3;
 pub use crate::glam::Mat4;
+pub use crate::glam::Vec3;
