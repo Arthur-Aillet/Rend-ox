@@ -5,6 +5,7 @@ use crate::Vec3;
 use glam::Mat4;
 use nannou;
 use nannou_egui::Egui;
+use nannou_egui::egui::CtxRef;
 
 use crate::camera_controller::key_pressed;
 use crate::graphics::Graphics;
@@ -55,7 +56,7 @@ pub fn launch_rendox_app<T: 'static>(model: RendoxAppFn<T>) {
 }
 
 pub type RendoxAppFn<T> = fn(_: &nannou::App) -> App<T>;
-pub type UpdateFn<T> = fn(_: &nannou::App, _: &mut App<T>, _: crate::nannou::event::Update);
+pub type UpdateFn<T> = fn(_: &nannou::App, _: &mut App<T>, _: crate::nannou::event::Update, _: CtxRef);
 
 pub fn app<T: 'static>(nannou_app: &nannou::App, user: T, user_update: UpdateFn<T>) -> App<T> {
     match create_app(nannou_app, user, user_update) {

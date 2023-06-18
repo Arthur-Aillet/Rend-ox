@@ -15,7 +15,9 @@ use nannou::Frame;
 
 pub fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {
     move_camera(nannou_app, app, &update);
-    (app.user_update)(nannou_app, app, update);
+    app.egui_instance.set_elapsed_time(update.since_start);
+    let ctx = app.egui_instance.begin_frame().clone();
+    (app.user_update)(nannou_app, app, update, ctx);
     // {
     //     app.draw(&app.mesh);
     // }
