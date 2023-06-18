@@ -2,7 +2,6 @@ use std::cell::RefMut;
 
 use crate::app::{matrices_as_bytes_copy, vertices_as_bytes_copy, App};
 use crate::camera::Camera;
-use crate::camera_controller::move_camera;
 use crate::graphics::Graphics;
 use crate::uniforms::Uniforms;
 use glam::Mat4;
@@ -14,7 +13,6 @@ use nannou::winit;
 use nannou::Frame;
 
 pub fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {
-    move_camera(nannou_app, app, &update);
     app.egui_instance.set_elapsed_time(update.since_start);
     let ctx = app.egui_instance.begin_frame().clone();
     (app.user_update)(nannou_app, app, update, ctx);
