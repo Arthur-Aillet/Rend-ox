@@ -2,15 +2,15 @@ use std::cell::RefCell;
 use std::ops::Deref;
 
 use crate::Vec3;
-use nannou;
-use nannou::wgpu;
-use nannou_egui::Egui;
 use glam::Mat4;
+use nannou;
+use nannou_egui::Egui;
+use nannou_egui::egui::CtxRef;
 
 use crate::camera_controller::key_pressed;
 use crate::graphics::Graphics;
-use crate::mesh::{Mesh, MeshDescriptor};
-use crate::process::{view, event, update};
+use crate::mesh::MeshDescriptor;
+use crate::process::{event, update, view};
 
 pub struct App<T> {
     pub camera_is_active: bool,
@@ -19,7 +19,8 @@ pub struct App<T> {
     // pub mesh: MeshDescriptor,
     pub egui_instance: Egui,
     pub user: T,
-    pub user_update: UpdateFn<T>
+    pub user_update: Option<UpdateFn<T>>,
+    pub user_keypressed: Option<UserKeyPressedFn<T>>,
 }
 
 pub fn vertices_as_bytes_copy(data: &Vec<Vec3>) -> Vec<u8> {
@@ -56,10 +57,11 @@ pub fn launch_rendox_app<T: 'static>(model: RendoxAppFn<T>) {
 }
 
 pub type RendoxAppFn<T> = fn(_: &nannou::App) -> App<T>;
-pub type UpdateFn<T> = fn(_: &nannou::App, _: &mut App<T>, _: crate::nannou::event::Update);
+pub type UpdateFn<T> = fn(_: &nannou::App, _: &mut App<T>, _: crate::nannou::event::Update, _: CtxRef);
+pub type UserKeyPressedFn<T> = fn(_: &nannou::App, _: &mut App<T>, _: crate::nannou::event::Key);
 
-pub fn app<T: 'static>(nannou_app: &nannou::App, user: T, user_update: UpdateFn<T>) -> App<T> {
-    match create_app(nannou_app, user, user_update) {
+pub fn app<T: 'static>(nannou_app: &nannou::App, user: T) -> App<T> {
+    match create_app(nannou_app, user) {
         Ok(model) => model,
         Err(err) => {
             eprintln!("Failed to create Model: {err}");
@@ -68,13 +70,29 @@ pub fn app<T: 'static>(nannou_app: &nannou::App, user: T, user_update: UpdateFn<
     }
 }
 
-fn raw_window_event<T>(_app: &nannou::App, model: &mut App<T>, event: &nannou::winit::event::WindowEvent) {
+impl<T> App<T> {
+    pub fn update(mut self, user_update: UpdateFn<T>) -> App<T> {
+        self.user_update = Some(user_update);
+        self
+    }
+
+    pub fn key_pressed(mut self, user_key_pressed: UserKeyPressedFn<T>) -> App<T> {
+        self.user_keypressed = Some(user_key_pressed);
+        self
+    }
+}
+
+fn raw_window_event<T>(
+    _app: &nannou::App,
+    model: &mut App<T>,
+    event: &nannou::winit::event::WindowEvent,
+) {
     model.egui_instance.handle_raw_event(event);
 }
+
 fn create_app<T: 'static>(
     nannou_app: &nannou::App,
     user: T,
-    user_update: UpdateFn<T>
 ) -> Result<App<T>, Box<dyn std::error::Error>> {
     let w_id = match nannou_app
         .new_window()
@@ -103,7 +121,6 @@ fn create_app<T: 'static>(
 
     let egui_instance = Egui::from_window(&window);
 
-
     let camera_is_active = true;
     match window.set_cursor_grab(true) {
         Err(_err) => {
@@ -117,28 +134,28 @@ fn create_app<T: 'static>(
 
     let camera = crate::camera::Camera::new();
 
-
     println!("Use the `W`, `A`, `S`, `D`, `Q` and `E` keys to move the camera.");
     println!("Use the mouse to orient the pitch and yaw of the camera.");
     println!("Press the `Space` key to toggle camera mode.");
 
     // let ret = Mesh::from_obj("./.objs/bat.obj");
 
-    let mut graphics = Graphics::create(window.deref(), &camera);
+    let graphics = Graphics::create(window.deref(), &camera);
     // let ret = graphics.load_mesh("./.objs/bat.obj");
     // match ret {
     //     Err(e) => return Err(e),
     //     Ok(mesh) => {
-            Ok(App {
-                camera_is_active,
-                graphics: RefCell::new(graphics),
-                camera,
-                // mesh,
-                user,
-                user_update,
-                egui_instance,
-            })
-        // }
+    Ok(App {
+        camera_is_active,
+        graphics: RefCell::new(graphics),
+        camera,
+        // mesh,
+        user,
+        user_update: None,
+        egui_instance,
+        user_keypressed: None,
+    })
+    // }
     // }
 }
 
@@ -149,14 +166,20 @@ impl<T> App<T> {
                 old_col.append(&mut vec![color]);
                 old_inst.append(&mut vec![Mat4::IDENTITY]);
             } else {
-                g.draw_queue.insert(md.clone(), (vec![color], vec![Mat4::IDENTITY]));
+                g.draw_queue
+                    .insert(md.clone(), (vec![color], vec![Mat4::IDENTITY]));
             }
             return true;
         }
         println!("Rendox: failed draw call of {}", md.name);
         false
     }
-    pub fn draw_instances(&self, md: &MeshDescriptor, mut instances: Vec<Mat4>, colors: Vec<Vec3>) -> bool {
+    pub fn draw_instances(
+        &self,
+        md: &MeshDescriptor,
+        mut instances: Vec<Mat4>,
+        colors: Vec<Vec3>
+    ) -> bool {
         let mut c = match colors.len() {
             0 => vec![Vec3::new(1., 1., 1.)],
             _ => colors

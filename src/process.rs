@@ -1,23 +1,23 @@
 use std::cell::RefMut;
 
-use glam::Mat4;
-use crate::Vec3;
-use crate::app::{App, vertices_as_bytes_copy, matrices_as_bytes_copy};
+use crate::app::{matrices_as_bytes_copy, vertices_as_bytes_copy, App};
 use crate::camera::Camera;
-use crate::camera_controller::move_camera;
 use crate::graphics::Graphics;
-use crate::mesh::{Mesh, MeshDescriptor};
 use crate::uniforms::Uniforms;
+use glam::Mat4;
 
 use nannou::event::{Event, Update};
-use nannou::wgpu::util::DeviceExt;
 use nannou::wgpu;
+use nannou::wgpu::util::DeviceExt;
 use nannou::winit;
 use nannou::Frame;
 
 pub fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {
-    move_camera(nannou_app, app, &update);
-    (app.user_update)(nannou_app, app, update);
+    app.egui_instance.set_elapsed_time(update.since_start);
+    let ctx = app.egui_instance.begin_frame().clone();
+    if let Some(update_fn) = app.user_update {
+        update_fn(nannou_app, app, update, ctx);
+    }
     // {
     //     app.draw(&app.mesh);
     // }
@@ -53,11 +53,7 @@ pub fn event<T>(_nannou_app: &nannou::App, app: &mut App<T>, event: nannou::Even
     }
 }
 
-fn three_d_view_rendering(
-    mut graphics: RefMut<Graphics>,
-    frame: &Frame,
-    camera: &Camera,
-) {
+fn three_d_view_rendering(mut graphics: RefMut<Graphics>, frame: &Frame, camera: &Camera) {
     let depth_size = graphics.depth_texture.size();
     let device = frame.device_queue_pair().device();
     graphics.refresh_shaders(device);
@@ -121,14 +117,19 @@ fn three_d_view_rendering(
             .begin(&mut encoder);
         render_pass.set_bind_group(0, &graphics.bind_group, &[]);
 
-
         let mut count = counts.iter();
         let mut shader = shaders.iter();
         let mut instance = all_instances.iter();
         let mut instance_buffer = instance_buffers.iter();
         let mut instance_color = inst_color_buffers.iter();
         for i in (0..buffers.len()).step_by(4) {
-            if let (Some(c), Some(inst), Some(inst_buff), Some(inst_color), Some(s)) = (count.next(), instance.next(), instance_buffer.next(), instance_color.next(), shader.next()) {
+            if let (Some(c), Some(inst), Some(inst_buff), Some(inst_color), Some(s)) = (
+                count.next(),
+                instance.next(),
+                instance_buffer.next(),
+                instance_color.next(),
+                shader.next(),
+            ) {
                 render_pass.set_pipeline(&graphics.render_pipelines[s]);
                 render_pass.set_index_buffer(buffers[i].slice(..), wgpu::IndexFormat::Uint16);
                 render_pass.set_vertex_buffer(0, buffers[i + 1].slice(..));
@@ -138,7 +139,6 @@ fn three_d_view_rendering(
                 render_pass.set_vertex_buffer(4, inst_buff.slice(..));
                 render_pass.draw_indexed(0..*c as u32, 0, 0..inst.len() as u32);
             }
-
         }
     }
 }
