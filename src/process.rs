@@ -28,7 +28,6 @@ pub fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {
 }
 
 pub fn event<T>(_nannou_app: &nannou::App, app: &mut App<T>, event: nannou::Event) {
-    return;
     if app.camera_is_active {
         if let Event::DeviceEvent(_device_id, event) = event {
             if let winit::event::DeviceEvent::Motion { axis, value } = event {
