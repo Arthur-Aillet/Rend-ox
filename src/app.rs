@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::rc::Rc;
 use std::ops::Deref;
 
 use crate::Vec3;
@@ -17,7 +18,7 @@ pub struct App<T> {
     pub graphics: RefCell<Graphics>,
     pub camera: crate::camera::Camera,
     // pub mesh: MeshDescriptor,
-    pub egui_instance: Egui,
+    pub(crate) egui_instance: Rc<RefCell<Egui>>,
     pub user: T,
     pub user_update: Option<UpdateFn<T>>,
     pub user_keypressed: Option<UserKeyPressedFn<T>>,
@@ -57,7 +58,7 @@ pub fn launch_rendox_app<T: 'static>(model: RendoxAppFn<T>) {
 }
 
 pub type RendoxAppFn<T> = fn(_: &nannou::App) -> App<T>;
-pub type UpdateFn<T> = fn(_: &nannou::App, _: &mut App<T>, _: crate::nannou::event::Update, _: CtxRef);
+pub type UpdateFn<T> = fn(_: &nannou::App, _: &mut App<T>, _: crate::nannou::event::Update, _: &CtxRef);
 pub type UserKeyPressedFn<T> = fn(_: &nannou::App, _: &mut App<T>, _: crate::nannou::event::Key);
 
 pub fn app<T: 'static>(nannou_app: &nannou::App, user: T) -> App<T> {
@@ -87,7 +88,9 @@ fn raw_window_event<T>(
     model: &mut App<T>,
     event: &nannou::winit::event::WindowEvent,
 ) {
-    model.egui_instance.handle_raw_event(event);
+    if let Ok(mut egui) = model.egui_instance.try_borrow_mut() {
+        egui.handle_raw_event(event);
+    }
 }
 
 fn create_app<T: 'static>(
@@ -119,7 +122,7 @@ fn create_app<T: 'static>(
         Some(val) => val,
     };
 
-    let egui_instance = Egui::from_window(&window);
+    let egui_instance = Rc::new(RefCell::new(Egui::from_window(&window)));
 
     let camera_is_active = true;
     match window.set_cursor_grab(true) {
