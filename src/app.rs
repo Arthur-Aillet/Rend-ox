@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::ops::Deref;
 
 use crate::Vec3;
-use glam::Mat4;
+use glam::{EulerRot, Mat4, Quat};
 use nannou;
 use nannou_egui::Egui;
 use nannou_egui::egui::CtxRef;
@@ -174,6 +174,22 @@ impl<T> App<T> {
         println!("Rendox: failed draw call of {}", md.name);
         false
     }
+
+    pub fn draw_at(&self, md: &MeshDescriptor, color: Vec3, pos: Vec3, rot : Vec3, scale : Vec3) -> bool {
+        if let Ok(mut g) = self.graphics.try_borrow_mut() {
+            if let Some((old_col, old_inst)) = g.draw_queue.get_mut(&md) {
+                old_col.append(&mut vec![color]);
+                old_inst.append(&mut vec![Mat4::from_scale_rotation_translation(scale, Quat::from_euler(EulerRot::XYZ, rot.x, rot.y, rot.z), pos)]);
+            } else {
+                g.draw_queue
+                    .insert(md.clone(), (vec![color], vec![Mat4::from_scale_rotation_translation(scale, Quat::from_euler(EulerRot::XYZ, rot.x, rot.y, rot.z), pos)]));
+            }
+            return true;
+        }
+        println!("Rendox: failed draw call of {}", md.name);
+        false
+    }
+
     pub fn draw_instances(
         &self,
         md: &MeshDescriptor,
