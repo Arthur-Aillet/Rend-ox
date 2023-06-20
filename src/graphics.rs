@@ -194,7 +194,7 @@ impl Graphics {
         if let Ok(default_shader) = graphics.load_shader("./src/rend_ox/src/shaders/fs.wgsl") {
             graphics.default_shader = default_shader;
             graphics.refresh_shaders(device);
-            println!("loaded fs as {}", default_shader);
+            //println!("loaded fs as {}", default_shader);
         } else {
             println!("rend-ox: warning: default shader failed to load");
         }
@@ -212,11 +212,11 @@ impl Graphics {
                         source: wgpu::ShaderSource::Wgsl(shader_source.into()),
                     },
                 );
-                println!("LOAD loaded {} as {}", path, idx);
+                //println!("LOAD loaded {} as {}", path, idx);
                 Ok(idx)
             }
             Err(e) => {
-                println!("LOAD FAILED: {}", e);
+                //println!("LOAD FAILED: {}", e);
                 Err(Box::new(e))
             }
         };
