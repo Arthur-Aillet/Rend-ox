@@ -1,6 +1,4 @@
 use std::cell::RefMut;
-use std::ops::Deref;
-use std::rc::Rc;
 
 use crate::app::{matrices_as_bytes_copy, vertices_as_bytes_copy, App};
 use crate::camera::Camera;
@@ -152,7 +150,7 @@ pub fn view<T>(_nannou_app: &nannou::App, app: &App<T>, frame: Frame) {
         three_d_view_rendering(graphics, &frame, &app.camera);
     }
 
-    if let Ok(mut egui) = app.egui_instance.try_borrow_mut() {
+    if let Ok(egui) = app.egui_instance.try_borrow_mut() {
         egui.draw_to_frame(&frame)
         .expect("egui instance couldn't be drawn")
     }
