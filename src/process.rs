@@ -11,6 +11,7 @@ use nannou::wgpu;
 use nannou::wgpu::util::DeviceExt;
 use nannou::winit;
 use nannou::Frame;
+use crate::graphics::MaterialSlot;
 
 pub fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {
     app.egui_instance.set_elapsed_time(update.since_start);
@@ -56,7 +57,8 @@ pub fn event<T>(_nannou_app: &nannou::App, app: &mut App<T>, event: nannou::Even
 fn three_d_view_rendering(mut graphics: RefMut<Graphics>, frame: &Frame, camera: &Camera) {
     let depth_size = graphics.depth_texture.size();
     let device = frame.device_queue_pair().device();
-    graphics.refresh_shaders(device);
+    let queue = frame.device_queue_pair().queue();
+    graphics.refresh_ressources(device, queue);
     let frame_size = frame.texture_size();
     if frame_size != depth_size {
         let sample_count = frame.texture_msaa_samples();
@@ -83,7 +85,7 @@ fn three_d_view_rendering(mut graphics: RefMut<Graphics>, frame: &Frame, camera:
     );
 
     let mut buffers: Vec<wgpu::Buffer> = vec![];
-    let mut shaders: Vec<usize> = vec![];
+    let mut materials: Vec<MaterialSlot> = vec![];
     let mut instance_buffers: Vec<wgpu::Buffer> = vec![];
     let mut inst_color_buffers: Vec<wgpu::Buffer> = vec![];
     let mut counts: Vec<usize> = vec![];
@@ -92,7 +94,7 @@ fn three_d_view_rendering(mut graphics: RefMut<Graphics>, frame: &Frame, camera:
     for (md, (colors, instances)) in &graphics.draw_queue {
         if let Some(mesh) = graphics.meshes.get(&md.idx) {
             graphics.draw(device, &mut buffers, &mut counts, mesh);
-            shaders.push(md.shader);
+            materials.push(md.material);
             all_instances.push(instances.clone());
             let raw_instance_col = vertices_as_bytes_copy(colors);
             let raw_instance_mat = matrices_as_bytes_copy(instances);
@@ -115,22 +117,29 @@ fn three_d_view_rendering(mut graphics: RefMut<Graphics>, frame: &Frame, camera:
             // We'll use a depth texture to assist with the order of rendering fragments based on depth.
             .depth_stencil_attachment(&graphics.depth_texture_view, |depth| depth)
             .begin(&mut encoder);
-        render_pass.set_bind_group(0, &graphics.bind_group, &[]);
+        render_pass.set_bind_group(0, &graphics.uniform_bind_group, &[]);
 
         let mut count = counts.iter();
-        let mut shader = shaders.iter();
+        let mut material = materials.iter();
         let mut instance = all_instances.iter();
         let mut instance_buffer = instance_buffers.iter();
         let mut instance_color = inst_color_buffers.iter();
         for i in (0..buffers.len()).step_by(4) {
-            if let (Some(c), Some(inst), Some(inst_buff), Some(inst_color), Some(s)) = (
+            if let (
+                Some(c),
+                Some(inst),
+                Some(inst_buff),
+                Some(inst_color),
+                Some(mat)
+            ) = (
                 count.next(),
                 instance.next(),
                 instance_buffer.next(),
                 instance_color.next(),
-                shader.next(),
+                material.next().and_then(|mat_desc|graphics.materials.get(mat_desc)),
             ) {
-                render_pass.set_pipeline(&graphics.render_pipelines[s]);
+                render_pass.set_bind_group(1, &mat.group, &[]);
+                render_pass.set_pipeline(&graphics.render_pipelines[&mat.shader]);
                 render_pass.set_index_buffer(buffers[i].slice(..), wgpu::IndexFormat::Uint16);
                 render_pass.set_vertex_buffer(0, buffers[i + 1].slice(..));
                 render_pass.set_vertex_buffer(1, buffers[i + 2].slice(..));

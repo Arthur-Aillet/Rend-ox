@@ -6,6 +6,8 @@ pub mod graphics;
 pub mod mesh;
 pub mod process;
 pub mod uniforms;
+pub mod texture;
+pub mod material;
 
 pub use glam;
 pub use nannou;

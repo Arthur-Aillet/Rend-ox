@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::mem::size_of;
+use std::mem::{size_of, swap};
 
 use crate::app::{indices_as_bytes_copy, vertices_as_bytes_copy};
 use crate::mesh::Mesh;
@@ -11,33 +11,39 @@ use crate::Vec3;
 use crate::camera::Camera;
 use nannou::wgpu;
 use nannou::wgpu::util::DeviceExt;
+use crate::material::{Material, MaterialDescriptor};
+
+pub type ShaderSlot = usize;
+pub type MaterialSlot = usize;
+pub type MeshSlot = usize;
 
 pub struct Graphics {
-    // pub device: &'static wgpu::Device,
     pub uniform_buffer: wgpu::Buffer,
+    pub uniform_bind_group: wgpu::BindGroup,
     pub depth_texture: wgpu::Texture,
     pub depth_texture_view: wgpu::TextureView,
-    pub bind_group: wgpu::BindGroup,
-    pub render_pipelines: HashMap<usize, wgpu::RenderPipeline>,
+    pub(crate) meshes:      HashMap<MeshSlot    , Mesh>,
+    pub(crate) materials:   HashMap<MaterialSlot, Material>,
+    pub material_layout:    Option<wgpu::BindGroupLayout>,
+    pub material_sources:   HashMap<MaterialSlot, MaterialDescriptor>,
+    pub(crate) shaders:     HashMap<ShaderSlot  , wgpu::ShaderModule>,
+    pub shader_sources:     HashMap<ShaderSlot  , wgpu::ShaderModuleDescriptor<'static>>,
+    pub render_pipelines:   HashMap<ShaderSlot  , wgpu::RenderPipeline>,
     pipeline_layout: wgpu::PipelineLayout,
-    pub(crate) draw_queue: HashMap<MeshDescriptor, (Vec<Vec3>, Vec<Mat4>)>,
-    pub shaders: HashMap<usize, wgpu::ShaderModule>,
-    pub shader_sources: HashMap<usize, wgpu::ShaderModuleDescriptor<'static>>,
-    pub meshes: HashMap<usize, Mesh>,
-    mesh_count: usize,
-    default_shader: usize,
+    pub(crate) draw_queue:  HashMap<MeshDescriptor  , (Vec<Vec3>, Vec<Mat4>)>,
+    default_material: ShaderSlot,
     vs_mod: wgpu::ShaderModule,
     msaa: u32,
     // pub(crate) render_pass: Option<wgpu::RenderPass>,
 }
 
-fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+fn create_uniform_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     wgpu::BindGroupLayoutBuilder::new()
-        .uniform_buffer(wgpu::ShaderStages::VERTEX, false)
+        .uniform_buffer(wgpu::ShaderStages::VERTEX_FRAGMENT, false)
         .build(device)
 }
 
-fn create_bind_group(
+fn create_uniform_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     uniform_buffer: &wgpu::Buffer,
@@ -47,13 +53,29 @@ fn create_bind_group(
         .build(device, layout)
 }
 
+fn create_material_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    wgpu::BindGroupLayoutBuilder::new()
+        .uniform_buffer(wgpu::ShaderStages::VERTEX_FRAGMENT, false)
+        .texture(
+            wgpu::ShaderStages::FRAGMENT,
+            false,
+            wgpu::TextureViewDimension::D2,
+            wgpu::TextureSampleType::Float { filterable: true })
+        .sampler(
+            wgpu::ShaderStages::FRAGMENT,
+            true
+        )
+        .build(device)
+}
+
 fn create_pipeline_layout(
     device: &wgpu::Device,
-    bind_group_layout: &wgpu::BindGroupLayout,
+    uniform_bind_group_layout: &wgpu::BindGroupLayout,
+    mat_bind_group_layout: &wgpu::BindGroupLayout,
 ) -> wgpu::PipelineLayout {
     let desc = wgpu::PipelineLayoutDescriptor {
         label: None,
-        bind_group_layouts: &[&bind_group_layout],
+        bind_group_layouts: &[&uniform_bind_group_layout, &mat_bind_group_layout],
         push_constant_ranges: &[],
     };
     device.create_pipeline_layout(&desc)
@@ -110,31 +132,32 @@ fn create_render_pipeline(
 
 impl Graphics {
     pub fn new(
-        //device: &wgpu::Device,
         uniform_buffer: wgpu::Buffer,
+        uniform_bind_group: wgpu::BindGroup,
         depth_texture: wgpu::Texture,
         depth_texture_view: wgpu::TextureView,
-        bind_group: wgpu::BindGroup,
         pipeline_layout: wgpu::PipelineLayout,
-        // render_pipelines: HashMap<usize, wgpu::RenderPipeline>,
-        default_shader: usize,
+        material_layout: Option<wgpu::BindGroupLayout>,
+        default_material: ShaderSlot,
         vs_mod: wgpu::ShaderModule,
         msaa: u32,
     ) -> Graphics {
         Graphics {
-            //device,
             uniform_buffer,
+            uniform_bind_group,
             depth_texture,
             depth_texture_view,
-            bind_group,
+            meshes: HashMap::new(),
+            materials: HashMap::new(),
+            material_layout,
+            material_sources: HashMap::new(),
+            shaders: HashMap::new(),
+            shader_sources: HashMap::new(),
             render_pipelines: HashMap::new(),
             pipeline_layout,
             draw_queue: HashMap::new(),
-            shaders: HashMap::new(),
-            shader_sources: HashMap::new(),
-            meshes: HashMap::new(),
-            mesh_count: 0,
-            default_shader,
+            // material,
+            default_material,
             vs_mod,
             msaa,
             // render_pass : None,
@@ -143,6 +166,7 @@ impl Graphics {
 
     pub fn create(window: &nannou::window::Window, camera: &Camera) -> Graphics {
         let device = window.device();
+        let queue = window.queue();
 
         let msaa_samples = window.msaa_samples();
         let window_size: glam::UVec2 = window.inner_size_pixels().into();
@@ -160,51 +184,51 @@ impl Graphics {
         let depth_texture_view = depth_texture.view().build();
 
         let uniform_buffer = Uniforms::new_as_buffer(window_size, &camera, device);
-        let bind_group_layout = create_bind_group_layout(device);
-        let bind_group = create_bind_group(device, &bind_group_layout, &uniform_buffer);
-        let pipeline_layout = create_pipeline_layout(device, &bind_group_layout);
-        // let mut render_pipelines = HashMap::new();
-        // render_pipelines.insert() create_render_pipeline(
-        //     device,
-        //     &pipeline_layout,
-        //     &vs_mod,
-        //     &fs_mod,
-        //     format,
-        //     wgpu::TextureFormat::Depth32Float,
-        //     msaa_samples,
-        // )];
+        let uniform_bind_group_layout = create_uniform_bind_group_layout(device);
+        let uniform_bind_group = create_uniform_bind_group(device, &uniform_bind_group_layout, &uniform_buffer);
+
+        let material_bind_group_layout = create_material_bind_group_layout(device);
+        // let material_bind_group = create_material_bind_group(device, &material_bind_group_layout, &material_buffer);
+
+        let pipeline_layout = create_pipeline_layout(device, &uniform_bind_group_layout, &material_bind_group_layout);
+
+        // let texture = Texture::from_file(device, queue,"happy-tree.png", "tree").expect("failed to load default tex");
+        //
+        // let material_bind_group_layout = create_material_bind_group_layout(device);
+        // let material_bind_group = create_material_bind_group(device, &material_bind_group_layout, &diffuse_texture_view, diffuse_sampler);
 
         let mut graphics = Graphics::new(
-            // index_count,
-            // index_buffer,
-            // vertex_buffer,
-            // uv_buffer,
-            // normal_buffer,
-            //device,
             uniform_buffer,
+            uniform_bind_group,
             depth_texture,
             depth_texture_view,
-            bind_group,
-            // render_pipelines,
             pipeline_layout,
+            Some(material_bind_group_layout),
             0,
             vs_mod,
             msaa_samples,
         );
-        if let Ok(default_shader) = graphics.load_shader("./src/rend_ox/src/shaders/fs.wgsl") {
-            graphics.default_shader = default_shader;
-            graphics.refresh_shaders(device);
-            println!("loaded fs as {}", default_shader);
-        } else {
-            println!("rend-ox: warning: default shader failed to load");
-        }
+
+        let mut mat = MaterialDescriptor::new();
+        mat.shader = Some("./src/rend_ox/src/shaders/fs.wgsl".into());
+
+        let default_material = graphics.load_material(mat);
+        graphics.default_material = default_material;
+        graphics.refresh_ressources(device, queue);
+        println!("loaded fs as {}", default_material);
         graphics
     }
 
-    pub fn load_shader(&mut self, path: &str) -> Result<usize, Box<dyn std::error::Error>> {
+    pub fn load_material(&mut self, material: MaterialDescriptor) -> MaterialSlot {
+        let idx = self.material_sources.len() as MaterialSlot;
+        self.material_sources.insert(idx, material);
+        idx
+    }
+
+    pub fn load_shader(&mut self, path: &str) -> Result<ShaderSlot, Box<dyn std::error::Error>> {
         return match std::fs::read_to_string(path) {
             Ok(shader_source) => {
-                let idx = self.shader_sources.len();
+                let idx = self.shader_sources.len() as ShaderSlot;
                 self.shader_sources.insert(
                     idx,
                     wgpu::ShaderModuleDescriptor {
@@ -222,7 +246,20 @@ impl Graphics {
         };
     }
 
-    pub fn refresh_shaders(&mut self, device: &wgpu::Device) {
+    pub fn refresh_ressources(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        if self.material_sources.len() > self.materials.len() {
+            let material_sources= std::mem::take(&mut self.material_sources);
+            if let Some(material_layout) = std::mem::take(&mut self.material_layout) {
+                for (idx, source) in &material_sources {
+                    if !self.materials.contains_key(idx) {
+                        let mat = Material::from_descriptor(self, device, queue, &material_layout, &source);
+                        self.materials.insert(*idx, mat);
+                    }
+                }
+                std::mem::replace(&mut self.material_layout, Some(material_layout));
+            }
+            std::mem::replace(&mut self.material_sources, material_sources);
+        }
         if self.shader_sources.len() > self.shaders.len() {
             for (idx, source) in &self.shader_sources {
                 if !self.shaders.contains_key(&idx) {
@@ -237,9 +274,9 @@ impl Graphics {
         }
     }
 
-    pub fn bind_shader_to_mesh(&self, md: &mut MeshDescriptor, shader: &usize) -> bool {
-        if self.shader_sources.contains_key(shader) {
-            md.shader = *shader;
+    pub fn bind_material_to_mesh(&self, md: &mut MeshDescriptor, material: &MaterialSlot) -> bool {
+        if self.material_sources.contains_key(material) {
+            md.material = *material;
             return true;
         }
         false
@@ -248,18 +285,17 @@ impl Graphics {
     pub fn load_mesh(&mut self, path: &str) -> Result<MeshDescriptor, Box<dyn std::error::Error>> {
         for (idx, mesh) in &self.meshes {
             if mesh.path == path {
-                return Ok(MeshDescriptor::new(*idx, path, self.default_shader));
+                return Ok(MeshDescriptor::new(*idx, path, self.default_material));
             }
         }
-        match Mesh::from_obj(path) {
+        return match Mesh::from_obj(path) {
             Ok(mesh) => {
-                self.meshes.insert(self.mesh_count, mesh);
+                let idx = self.meshes.len() as MeshSlot;
+                self.meshes.insert(idx, mesh);
+                Ok(MeshDescriptor::new(idx, path, self.default_material))
             }
-            Err(e) => return Err(e),
-        }
-        let ret = MeshDescriptor::new(self.mesh_count, path, self.default_shader);
-        self.mesh_count += 1;
-        Ok(ret)
+            Err(e) => Err(e)
+        };
     }
 
     fn create_render_pipeline_for_shader(

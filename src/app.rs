@@ -8,15 +8,17 @@ use nannou_egui::Egui;
 use nannou_egui::egui::CtxRef;
 
 use crate::camera_controller::key_pressed;
-use crate::graphics::Graphics;
+use crate::graphics::{Graphics, MaterialSlot, ShaderSlot};
+use crate::material::{MaterialDescriptor};
 use crate::mesh::MeshDescriptor;
+use crate::error::RendError;
 use crate::process::{event, update, view};
 
 pub struct App<T> {
     pub camera_is_active: bool,
-    pub graphics: RefCell<Graphics>,
+    pub(crate) graphics: RefCell<Graphics>,
     pub camera: crate::camera::Camera,
-    // pub mesh: MeshDescriptor,
+    pub mesh: MeshDescriptor,
     pub egui_instance: Egui,
     pub user: T,
     pub user_update: Option<UpdateFn<T>>,
@@ -140,26 +142,54 @@ fn create_app<T: 'static>(
 
     // let ret = Mesh::from_obj("./.objs/bat.obj");
 
-    let graphics = Graphics::create(window.deref(), &camera);
-    // let ret = graphics.load_mesh("./.objs/bat.obj");
-    // match ret {
-    //     Err(e) => return Err(e),
-    //     Ok(mesh) => {
+    let mut graphics = Graphics::create(window.deref(), &camera);
+    let ret = graphics.load_mesh("./obj/plane.obj");
+    match ret {
+        Err(e) => return Err(e),
+        Ok(mesh) => {
     Ok(App {
         camera_is_active,
         graphics: RefCell::new(graphics),
         camera,
-        // mesh,
+        mesh,
         user,
         user_update: None,
         egui_instance,
         user_keypressed: None,
     })
-    // }
-    // }
+    }
+    }
 }
 
 impl<T> App<T> {
+    pub fn load_shader(&mut self, path: &str) -> Result<ShaderSlot, Box<dyn std::error::Error>> {
+        if let Ok(mut g) = self.graphics.try_borrow_mut() {
+            return g.load_shader(path);
+        }
+        return Err(Box::new(RendError::new("Graphics module borrowed")));
+    }
+
+    pub fn load_material(&mut self, material: MaterialDescriptor) -> Result<MaterialSlot, Box<dyn std::error::Error>> {
+        if let Ok(mut g) = self.graphics.try_borrow_mut() {
+            return Ok(g.load_material(material));
+        }
+        return Err(Box::new(RendError::new("Graphics module borrowed")));
+    }
+
+    pub fn bind_material_to_mesh(&self, md: &mut MeshDescriptor, material: &MaterialSlot) -> bool {
+        if let Ok(g) = self.graphics.try_borrow() {
+            return g.bind_material_to_mesh(md, material);
+        }
+        false
+    }
+
+    pub fn load_mesh(&mut self, path: &str) -> Result<MeshDescriptor, Box<dyn std::error::Error>> {
+        if let Ok(mut g) = self.graphics.try_borrow_mut() {
+            return g.load_mesh(path);
+        }
+        return Err(Box::new(RendError::new("Graphics module borrowed")));
+    }
+
     pub fn draw(&self, md: &MeshDescriptor, color: Vec3) -> bool {
         if let Ok(mut g) = self.graphics.try_borrow_mut() {
             if let Some((old_col, old_inst)) = g.draw_queue.get_mut(&md) {
