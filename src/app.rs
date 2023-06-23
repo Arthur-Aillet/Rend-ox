@@ -141,25 +141,17 @@ fn create_app<T: 'static>(
     println!("Use the mouse to orient the pitch and yaw of the camera.");
     println!("Press the `Space` key to toggle camera mode.");
 
-    // let ret = Mesh::from_obj("./.objs/bat.obj");
-
     let graphics = Graphics::create(window.deref(), &camera);
-    // let ret = graphics.load_mesh("./.objs/bat.obj");
-    // match ret {
-    //     Err(e) => return Err(e),
-    //     Ok(mesh) => {
+
     Ok(App {
         camera_is_active,
         graphics: RefCell::new(graphics),
         camera,
-        // mesh,
         user,
         user_update: None,
         egui_instance,
         user_keypressed: None,
     })
-    // }
-    // }
 }
 
 impl<T> App<T> {
