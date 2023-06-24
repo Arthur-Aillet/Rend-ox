@@ -60,7 +60,7 @@ fn three_d_view_rendering(mut graphics: RefMut<Graphics>, frame: &Frame, camera:
     let depth_size = graphics.depth_texture.size();
     let device = frame.device_queue_pair().device();
     let queue = frame.device_queue_pair().queue();
-    graphics.refresh_ressources(device, queue);
+    graphics.refresh_resources(device, queue);
     let frame_size = frame.texture_size();
     if frame_size != depth_size {
         let sample_count = frame.texture_msaa_samples();

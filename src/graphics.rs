@@ -209,13 +209,18 @@ impl Graphics {
             msaa_samples,
         );
 
-        let mut mat = MaterialDescriptor::new();
-        mat.shader = Some("./src/rend_ox/src/shaders/fs.wgsl".into());
+        graphics.shader_sources.insert(graphics.default_material, wgpu::ShaderModuleDescriptor {
+                label: None,
+                source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/fs.wgsl").into()),
+            },
+        );
+
+        let mat = MaterialDescriptor::new();
+        // mat.shader = Some("./src/rend_ox/src/shaders/fs.wgsl".into());
 
         let default_material = graphics.load_material(mat);
         graphics.default_material = default_material;
-        graphics.refresh_ressources(device, queue);
-        // println!("loaded fs as {}", default_material);
+        graphics.refresh_resources(device, queue);
         graphics
     }
 
@@ -246,7 +251,7 @@ impl Graphics {
         };
     }
 
-    pub fn refresh_ressources(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    pub fn refresh_resources(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         if self.material_sources.len() > self.materials.len() {
             let material_sources= std::mem::take(&mut self.material_sources);
             if let Some(material_layout) = std::mem::take(&mut self.material_layout) {
