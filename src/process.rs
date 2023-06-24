@@ -12,16 +12,18 @@ use nannou::wgpu::util::DeviceExt;
 use nannou::winit;
 use nannou::Frame;
 use crate::graphics::MaterialSlot;
+use nannou_egui::egui::CtxRef;
 
 pub fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {
-    app.egui_instance.set_elapsed_time(update.since_start);
-    let ctx = app.egui_instance.begin_frame().clone();
+    let egui_ref = app.egui_instance.clone();
+    let mut egui = egui_ref.borrow_mut();
+
+    egui.set_elapsed_time(update.since_start);
+    let ctx = &egui.begin_frame() as &CtxRef;
+
     if let Some(update_fn) = app.user_update {
         update_fn(nannou_app, app, update, ctx);
     }
-    // {
-    //     app.draw(&app.mesh);
-    // }
 }
 
 pub fn event<T>(_nannou_app: &nannou::App, app: &mut App<T>, event: nannou::Event) {
@@ -157,7 +159,8 @@ pub fn view<T>(_nannou_app: &nannou::App, app: &App<T>, frame: Frame) {
         three_d_view_rendering(graphics, &frame, &app.camera);
     }
 
-    app.egui_instance
-        .draw_to_frame(&frame)
+    if let Ok(egui) = app.egui_instance.try_borrow_mut() {
+        egui.draw_to_frame(&frame)
         .expect("egui instance couldn't be drawn")
+    }
 }

@@ -6,7 +6,7 @@ use crate::error::RendError;
 use nannou::image::GenericImageView;
 
 pub(crate) struct Texture {
-    pub texture: wgpu::TextureHandle,
+    pub _texture: wgpu::TextureHandle,
     pub view: wgpu::TextureViewHandle,
     pub sampler: wgpu::Sampler,
 }
@@ -14,7 +14,6 @@ pub(crate) struct Texture {
 impl Texture {
     pub fn new(
         device: &wgpu::Device,
-        queue: &wgpu::Queue,
         label: Option<&str>,
     ) -> Texture {
         let (x, y) = (4, 4);
@@ -46,7 +45,7 @@ impl Texture {
         });
 
         Self {
-            texture,
+            _texture: texture,
             view,
             sampler,
         }
@@ -59,7 +58,7 @@ impl Texture {
         label: &str,
     ) -> Result<Texture, Box<dyn std::error::Error>> {
         return match std::fs::read(path) {
-            Ok(contents) => { Texture::from_bytes(device, queue, contents.as_slice(), path)},
+            Ok(contents) => { Texture::from_bytes(device, queue, contents.as_slice(), label)},
             Err(e) => Err(Box::new(e))
         }
     }
@@ -131,7 +130,7 @@ impl Texture {
         });
 
         Ok(Self {
-            texture,
+            _texture: texture,
             view,
             sampler,
         })

@@ -54,9 +54,9 @@ impl MaterialDescriptor {
 }
 
 pub(crate) struct Material {
-    pub(crate) data: MaterialData,
-    pub(crate) buffer: wgpu::Buffer,
-    pub(crate) maps: Vec<Texture>,
+    pub(crate) _data: MaterialData,
+    pub(crate) _buffer: wgpu::Buffer,
+    pub(crate) _maps: Vec<Texture>,
     pub(crate) group: wgpu::BindGroup,
     pub shader: ShaderSlot,
 }
@@ -99,7 +99,7 @@ impl Material {
             if let Ok(tex) = Texture::from_file(device, queue, path, "dynamic") {
                 maps.push(tex);
             } else {
-                maps.push(Texture::new(device, queue, Some("black")));
+                maps.push(Texture::new(device, Some("black")));
             }
         }
         let group = Self::bind_group(&maps, &buffer, device, layout);
@@ -108,9 +108,9 @@ impl Material {
             None => ShaderSlot::default(),
         };
         Self {
-            data: mat.data,
-            buffer,
-            maps,
+            _data: mat.data,
+            _buffer: buffer,
+            _maps: maps,
             shader,
             group,
         }

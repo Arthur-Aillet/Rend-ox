@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::mem::{size_of, swap};
+use std::mem::{size_of};
 
 use crate::app::{indices_as_bytes_copy, vertices_as_bytes_copy};
 use crate::mesh::Mesh;
@@ -215,7 +215,7 @@ impl Graphics {
         let default_material = graphics.load_material(mat);
         graphics.default_material = default_material;
         graphics.refresh_ressources(device, queue);
-        println!("loaded fs as {}", default_material);
+        // println!("loaded fs as {}", default_material);
         graphics
     }
 
@@ -236,11 +236,11 @@ impl Graphics {
                         source: wgpu::ShaderSource::Wgsl(shader_source.into()),
                     },
                 );
-                println!("LOAD loaded {} as {}", path, idx);
+                //println!("LOAD loaded {} as {}", path, idx);
                 Ok(idx)
             }
             Err(e) => {
-                println!("LOAD FAILED: {}", e);
+                //println!("LOAD FAILED: {}", e);
                 Err(Box::new(e))
             }
         };
@@ -256,9 +256,9 @@ impl Graphics {
                         self.materials.insert(*idx, mat);
                     }
                 }
-                std::mem::replace(&mut self.material_layout, Some(material_layout));
+                self.material_layout = Some(material_layout);
             }
-            std::mem::replace(&mut self.material_sources, material_sources);
+            self.material_sources = material_sources
         }
         if self.shader_sources.len() > self.shaders.len() {
             for (idx, source) in &self.shader_sources {

@@ -23,7 +23,7 @@ impl Camera {
             position: Vector::new(0., 0., 0.),
             pitch: 0.0,
             yaw: std::f32::consts::PI * 0.5,
-            speed: 1.,
+            speed: 0.5,
             fov: 80.0,
             sensitivity: 4.,
         }
