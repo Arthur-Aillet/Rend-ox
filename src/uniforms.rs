@@ -15,10 +15,6 @@ pub struct Uniforms {
 }
 
 impl Uniforms {
-    /* fn as_bytes(&self) -> &[u8] {
-        unsafe { nannou::wgpu::bytes::from(self) }
-    }*/
-
     fn as_bytes_copy(&self) -> Vec<u8> {
         let mut final_bytes: Vec<u8> = vec![];
         for matrix in [self.world, self.view, self.proj].iter() {
