@@ -117,7 +117,6 @@ impl Material {
     }
 
     fn bind_group(maps: &Vec<Texture>, buffer: &wgpu::Buffer, device: &wgpu::Device, layout: &wgpu::BindGroupLayout) -> wgpu::BindGroup {
-        println!("making bindgroup for {} maps", maps.len());
         let mut group = wgpu::BindGroupBuilder::new()
             .buffer::<MaterialData>(buffer, 0..1);
         let map = maps.get(0).expect("NO FILE GIVEN");

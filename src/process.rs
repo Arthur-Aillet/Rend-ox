@@ -1,16 +1,17 @@
-use std::cell::RefMut;
-
 use crate::app::{matrices_as_bytes_copy, vertices_as_bytes_copy, App};
 use crate::camera::Camera;
 use crate::graphics::Graphics;
 use crate::uniforms::Uniforms;
+use crate::graphics::MaterialSlot;
+
+use std::cell::RefMut;
+
 use glam::Mat4;
 
 use nannou::event::Update;
 use nannou::wgpu;
 use nannou::wgpu::util::DeviceExt;
 use nannou::Frame;
-use crate::graphics::MaterialSlot;
 use nannou_egui::egui::CtxRef;
 
 pub(crate) fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {

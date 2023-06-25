@@ -150,10 +150,6 @@ fn create_app<T: 'static>(
 
     let camera = crate::camera::Camera::new();
 
-    println!("Use the `W`, `A`, `S`, `D`, `Q` and `E` keys to move the camera.");
-    println!("Use the mouse to orient the pitch and yaw of the camera.");
-    println!("Press the `Space` key to toggle camera mode.");
-
     let graphics = Graphics::create(window.deref(), &camera);
 
     Ok(App {
