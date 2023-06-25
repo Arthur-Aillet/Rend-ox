@@ -6,15 +6,14 @@ use crate::graphics::Graphics;
 use crate::uniforms::Uniforms;
 use glam::Mat4;
 
-use nannou::event::{Event, Update};
+use nannou::event::Update;
 use nannou::wgpu;
 use nannou::wgpu::util::DeviceExt;
-use nannou::winit;
 use nannou::Frame;
 use crate::graphics::MaterialSlot;
 use nannou_egui::egui::CtxRef;
 
-pub fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {
+pub(crate) fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {
     let egui_ref = app.egui_instance.clone();
     let mut egui = egui_ref.borrow_mut();
 
@@ -26,33 +25,9 @@ pub fn update<T>(nannou_app: &nannou::App, app: &mut App<T>, update: Update) {
     }
 }
 
-pub fn event<T>(_nannou_app: &nannou::App, app: &mut App<T>, event: nannou::Event) {
-    if app.camera_is_active {
-        if let Event::DeviceEvent(_device_id, event) = event {
-            if let winit::event::DeviceEvent::Motion { axis, value } = event {
-                let sensitivity = app.camera.sensitivity / 1000.;
-                match axis {
-                    // Yaw left and right on mouse x axis movement.
-                    0 => app.camera.yaw -= (value * sensitivity) as f32,
-                    // Pitch up and down on mouse y axis movement.
-                    _ => {
-                        let max_pitch = std::f32::consts::PI * 0.5 - 0.0001;
-                        let min_pitch = -max_pitch;
-                        app.camera.pitch = (app.camera.pitch + (-value * sensitivity) as f32)
-                            .min(max_pitch)
-                            .max(min_pitch)
-                    }
-                }
-            } else if let winit::event::DeviceEvent::MouseMotion { delta } = event {
-                let sensitivity = app.camera.sensitivity / 1000.;
-                app.camera.yaw -= (delta.0 * sensitivity) as f32;
-                let max_pitch = std::f32::consts::PI * 0.5 - 0.0001;
-                let min_pitch = -max_pitch;
-                app.camera.pitch = (app.camera.pitch + (-delta.1 * sensitivity) as f32)
-                    .min(max_pitch)
-                    .max(min_pitch);
-            }
-        }
+pub(crate) fn event<T>(nannou_app: &nannou::App, app: &mut App<T>, event: nannou::Event) {
+    if let Some(event_fn) = app.user_event {
+        event_fn(nannou_app, app, event);
     }
 }
 
@@ -154,7 +129,7 @@ fn three_d_view_rendering(mut graphics: RefMut<Graphics>, frame: &Frame, camera:
     }
 }
 
-pub fn view<T>(_nannou_app: &nannou::App, app: &App<T>, frame: Frame) {
+pub(crate) fn view<T>(_nannou_app: &nannou::App, app: &App<T>, frame: Frame) {
     if let Ok(graphics) = app.graphics.try_borrow_mut() {
         three_d_view_rendering(graphics, &frame, &app.camera);
     }

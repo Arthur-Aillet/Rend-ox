@@ -20,6 +20,11 @@ use crate::mesh::MeshDescriptor;
 use crate::error::RendError;
 use crate::process::{event, update, view};
 
+pub type RendoxAppFn<T> = fn(_: &nannou::App) -> App<T>;
+pub type UpdateFn<T> = fn(_: &nannou::App, _: &mut App<T>, _: crate::nannou::event::Update, _: &CtxRef);
+pub type UserKeyPressedFn<T> = fn(_: &nannou::App, _: &mut App<T>, _: crate::nannou::event::Key);
+pub type EventFn<T> = fn(_: &nannou::App, _: &mut App<T>, _: nannou::Event);
+
 pub struct App<T> {
     pub camera_is_active: bool,
     pub(crate) graphics: RefCell<Graphics>,
@@ -29,9 +34,10 @@ pub struct App<T> {
     pub user: T,
     pub user_update: Option<UpdateFn<T>>,
     pub user_keypressed: Option<UserKeyPressedFn<T>>,
+    pub user_event: Option<EventFn<T>>,
 }
 
-pub fn vertices_as_bytes_copy(data: &Vec<Vec3>) -> Vec<u8> {
+pub(crate) fn vertices_as_bytes_copy(data: &Vec<Vec3>) -> Vec<u8> {
     let mut final_bytes: Vec<u8> = vec![];
     for elem in data {
         for i in 0..3 {
@@ -41,7 +47,7 @@ pub fn vertices_as_bytes_copy(data: &Vec<Vec3>) -> Vec<u8> {
     final_bytes
 }
 
-pub fn indices_as_bytes_copy(data: &Vec<u16>) -> Vec<u8> {
+pub(crate) fn indices_as_bytes_copy(data: &Vec<u16>) -> Vec<u8> {
     let mut final_bytes: Vec<u8> = vec![];
     for elem in data {
         final_bytes.push(*elem as u8);
@@ -64,10 +70,6 @@ pub fn launch_rendox_app<T: 'static>(model: RendoxAppFn<T>) {
     nannou::app(model).event(event).update(update).run();
 }
 
-pub type RendoxAppFn<T> = fn(_: &nannou::App) -> App<T>;
-pub type UpdateFn<T> = fn(_: &nannou::App, _: &mut App<T>, _: crate::nannou::event::Update, _: &CtxRef);
-pub type UserKeyPressedFn<T> = fn(_: &nannou::App, _: &mut App<T>, _: crate::nannou::event::Key);
-
 pub fn app<T: 'static>(nannou_app: &nannou::App, user: T) -> App<T> {
     match create_app(nannou_app, user) {
         Ok(model) => model,
@@ -86,6 +88,10 @@ impl<T> App<T> {
 
     pub fn key_pressed(mut self, user_key_pressed: UserKeyPressedFn<T>) -> App<T> {
         self.user_keypressed = Some(user_key_pressed);
+        self
+    }
+    pub fn event(mut self, user_event: EventFn<T>) -> App<T> {
+        self.user_event = Some(user_event);
         self
     }
 }
@@ -155,9 +161,10 @@ fn create_app<T: 'static>(
         graphics: RefCell::new(graphics),
         camera,
         user,
-        user_update: None,
         egui_instance,
+        user_update: None,
         user_keypressed: None,
+        user_event: None,
     })
 }
 

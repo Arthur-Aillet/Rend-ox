@@ -21,7 +21,7 @@ pub type ShaderSlot = usize;
 pub type MaterialSlot = usize;
 pub type MeshSlot = usize;
 
-pub struct Graphics {
+pub(crate) struct Graphics {
     pub uniform_buffer: wgpu::Buffer,
     pub uniform_bind_group: wgpu::BindGroup,
     pub depth_texture: wgpu::Texture,
@@ -134,7 +134,7 @@ fn create_render_pipeline(
 }
 
 impl Graphics {
-    pub fn new(
+    pub(crate) fn new(
         uniform_buffer: wgpu::Buffer,
         uniform_bind_group: wgpu::BindGroup,
         depth_texture: wgpu::Texture,
@@ -165,7 +165,7 @@ impl Graphics {
         }
     }
 
-    pub fn create(window: &nannou::window::Window, camera: &Camera) -> Graphics {
+    pub(crate) fn create(window: &nannou::window::Window, camera: &Camera) -> Graphics {
         let device = window.device();
         let queue = window.queue();
 
@@ -217,7 +217,7 @@ impl Graphics {
         graphics
     }
 
-    pub fn load_material(&mut self, material: MaterialDescriptor) -> MaterialSlot {
+    pub(crate) fn load_material(&mut self, material: MaterialDescriptor) -> MaterialSlot {
         let idx = self.material_sources.len() as MaterialSlot;
         self.material_sources.insert(idx, material);
         idx
@@ -226,7 +226,7 @@ impl Graphics {
     /// load a shader from a file and store its source
     ///
     /// the shader will be built on the next call to `Graphics::refresh_resources`
-    pub fn load_shader(&mut self, path: &str) -> Result<ShaderSlot, Box<dyn std::error::Error>> {
+    pub(crate) fn load_shader(&mut self, path: &str) -> Result<ShaderSlot, Box<dyn std::error::Error>> {
         return match std::fs::read_to_string(path) {
             Ok(shader_source) => {
                 let idx = self.shader_sources.len() as ShaderSlot;
@@ -250,7 +250,7 @@ impl Graphics {
     /// this includes textures and shaders
     ///
     /// this must be called internally before a render to ensure resources are properly initialized
-    pub fn refresh_resources(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    pub(crate) fn refresh_resources(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         if self.material_sources.len() > self.materials.len() {
             let material_sources= std::mem::take(&mut self.material_sources);
             if let Some(material_layout) = std::mem::take(&mut self.material_layout) {
@@ -278,7 +278,7 @@ impl Graphics {
         }
     }
 
-    pub fn bind_material_to_mesh(&self, md: &mut MeshDescriptor, material: &MaterialSlot) -> bool {
+    pub(crate) fn bind_material_to_mesh(&self, md: &mut MeshDescriptor, material: &MaterialSlot) -> bool {
         if self.material_sources.contains_key(material) {
             md.material = *material;
             return true;
@@ -287,7 +287,7 @@ impl Graphics {
     }
 
     /// Entirely load mesh data into cpu memory
-    pub fn load_mesh(&mut self, path: &str) -> Result<MeshDescriptor, Box<dyn std::error::Error>> {
+    pub(crate) fn load_mesh(&mut self, path: &str) -> Result<MeshDescriptor, Box<dyn std::error::Error>> {
         for (idx, mesh) in &self.meshes {
             if mesh.path == path {
                 return Ok(MeshDescriptor::new(*idx, path, self.default_material));
@@ -321,7 +321,7 @@ impl Graphics {
     }
 
     // push buffers from a draw call into a stack
-    pub fn draw(
+    pub(crate) fn draw(
         &self,
         device: &wgpu::Device,
         buffers: &mut Vec<wgpu::Buffer>,

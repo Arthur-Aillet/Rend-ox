@@ -29,10 +29,6 @@ impl Camera {
         }
     }
 
-    fn direction(&self) -> Vector {
-        pitch_yaw_to_direction(self.pitch, self.yaw)
-    }
-
     fn look_to_rh(&self, direction: Vector, up: Vector) -> glam::Mat4 {
         let front = direction.normalize();
         let side = front.cross(up).normalize();
@@ -51,7 +47,7 @@ impl Camera {
     }
 
     pub fn move_forward(&mut self, distance: f32) {
-        self.position += self.direction() * distance;
+        self.position += pitch_yaw_to_direction(self.pitch, self.yaw) * distance;
     }
 
     pub fn move_right(&mut self, distance: f32) {
@@ -68,7 +64,7 @@ impl Camera {
         self.position += direction * distance;
     }
 
-    pub fn calc_view_matrix(&self) -> glam::Mat4 {
+    pub(crate) fn calc_view_matrix(&self) -> glam::Mat4 {
         self.look_to_rh(pitch_yaw_to_direction(self.pitch, self.yaw), Vector::Z)
     }
 }
