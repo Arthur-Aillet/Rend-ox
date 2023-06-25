@@ -1,3 +1,8 @@
+//! Main app
+//! Stores everything persistent to the engine, and a custom type for users,
+//! exposes methods for the graphics module
+//! it is created using nannou, but that dependency is planned to be removed
+
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::ops::Deref;
@@ -157,6 +162,9 @@ fn create_app<T: 'static>(
 }
 
 impl<T> App<T> {
+    /// load a fragment shader.
+    ///
+    /// the format must be identical to fs.wgsl or wgpu will panic
     pub fn load_shader(&mut self, path: &str) -> Result<ShaderSlot, Box<dyn std::error::Error>> {
         if let Ok(mut g) = self.graphics.try_borrow_mut() {
             return g.load_shader(path);
@@ -164,6 +172,7 @@ impl<T> App<T> {
         return Err(Box::new(RendError::new("Graphics module borrowed")));
     }
 
+    /// load a material, its textures and associated shader
     pub fn load_material(&mut self, material: MaterialDescriptor) -> Result<MaterialSlot, Box<dyn std::error::Error>> {
         if let Ok(mut g) = self.graphics.try_borrow_mut() {
             return Ok(g.load_material(material));
@@ -171,6 +180,7 @@ impl<T> App<T> {
         return Err(Box::new(RendError::new("Graphics module borrowed")));
     }
 
+    /// set a MeshDescriptor to use a given material for following draw calls
     pub fn bind_material_to_mesh(&self, md: &mut MeshDescriptor, material: &MaterialSlot) -> bool {
         if let Ok(g) = self.graphics.try_borrow() {
             return g.bind_material_to_mesh(md, material);
@@ -178,6 +188,7 @@ impl<T> App<T> {
         false
     }
 
+    /// load a mesh from a file and return a unique MeshDescriptor
     pub fn load_mesh(&mut self, path: &str) -> Result<MeshDescriptor, Box<dyn std::error::Error>> {
         if let Ok(mut g) = self.graphics.try_borrow_mut() {
             return g.load_mesh(path);
@@ -185,6 +196,7 @@ impl<T> App<T> {
         return Err(Box::new(RendError::new("Graphics module borrowed")));
     }
 
+    /// draw a mesh with no transforms
     pub fn draw(&self, md: &MeshDescriptor, color: Vec3) -> bool {
         if let Ok(mut g) = self.graphics.try_borrow_mut() {
             if let Some((old_col, old_inst)) = g.draw_queue.get_mut(&md) {
@@ -200,6 +212,7 @@ impl<T> App<T> {
         false
     }
 
+    /// draw a mesh at a given position rotation and scale, with given instance color
     pub fn draw_at(&self, md: &MeshDescriptor, color: Vec3, pos: Vec3, rot : Vec3, scale : Vec3) -> bool {
         if let Ok(mut g) = self.graphics.try_borrow_mut() {
             if let Some((old_col, old_inst)) = g.draw_queue.get_mut(&md) {
@@ -215,6 +228,9 @@ impl<T> App<T> {
         false
     }
 
+    /// draw a single mesh multiple times with different transforms
+    /// each instance is given by a matrix transformation
+    /// and colors loop over, with a default of white
     pub fn draw_instances(
         &self,
         md: &MeshDescriptor,

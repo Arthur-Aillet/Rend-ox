@@ -1,3 +1,7 @@
+//! Graphics Module
+//! store gpu resources, mesh data, and other rendering related elements
+//! dynamically load these resources, and let them be built by a call to `Graphics::refresh_resources`
+
 use std::collections::HashMap;
 use std::mem::{size_of};
 
@@ -34,7 +38,6 @@ pub struct Graphics {
     default_material: ShaderSlot,
     vs_mod: wgpu::ShaderModule,
     msaa: u32,
-    // pub(crate) render_pass: Option<wgpu::RenderPass>,
 }
 
 fn create_uniform_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
@@ -156,11 +159,9 @@ impl Graphics {
             render_pipelines: HashMap::new(),
             pipeline_layout,
             draw_queue: HashMap::new(),
-            // material,
             default_material,
             vs_mod,
             msaa,
-            // render_pass : None,
         }
     }
 
@@ -172,7 +173,6 @@ impl Graphics {
         let window_size: glam::UVec2 = window.inner_size_pixels().into();
 
         let vs_mod = device.create_shader_module(&wgpu::include_wgsl!("./shaders/vs.wgsl"));
-        // let fs_mod = device.create_shader_module(&wgpu::include_wgsl!("./shaders/fs.wgsl"));
 
         let depth_texture = wgpu::TextureBuilder::new()
             .size([window_size.x, window_size.y])
@@ -188,14 +188,8 @@ impl Graphics {
         let uniform_bind_group = create_uniform_bind_group(device, &uniform_bind_group_layout, &uniform_buffer);
 
         let material_bind_group_layout = create_material_bind_group_layout(device);
-        // let material_bind_group = create_material_bind_group(device, &material_bind_group_layout, &material_buffer);
 
         let pipeline_layout = create_pipeline_layout(device, &uniform_bind_group_layout, &material_bind_group_layout);
-
-        // let texture = Texture::from_file(device, queue,"happy-tree.png", "tree").expect("failed to load default tex");
-        //
-        // let material_bind_group_layout = create_material_bind_group_layout(device);
-        // let material_bind_group = create_material_bind_group(device, &material_bind_group_layout, &diffuse_texture_view, diffuse_sampler);
 
         let mut graphics = Graphics::new(
             uniform_buffer,
@@ -216,7 +210,6 @@ impl Graphics {
         );
 
         let mat = MaterialDescriptor::new();
-        // mat.shader = Some("./src/rend_ox/src/shaders/fs.wgsl".into());
 
         let default_material = graphics.load_material(mat);
         graphics.default_material = default_material;
@@ -230,6 +223,9 @@ impl Graphics {
         idx
     }
 
+    /// load a shader from a file and store its source
+    ///
+    /// the shader will be built on the next call to `Graphics::refresh_resources`
     pub fn load_shader(&mut self, path: &str) -> Result<ShaderSlot, Box<dyn std::error::Error>> {
         return match std::fs::read_to_string(path) {
             Ok(shader_source) => {
@@ -241,16 +237,19 @@ impl Graphics {
                         source: wgpu::ShaderSource::Wgsl(shader_source.into()),
                     },
                 );
-                //println!("LOAD loaded {} as {}", path, idx);
                 Ok(idx)
             }
             Err(e) => {
-                //println!("LOAD FAILED: {}", e);
                 Err(Box::new(e))
             }
         };
     }
 
+    /// load gpu resources from cpu memory
+    ///
+    /// this includes textures and shaders
+    ///
+    /// this must be called internally before a render to ensure resources are properly initialized
     pub fn refresh_resources(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         if self.material_sources.len() > self.materials.len() {
             let material_sources= std::mem::take(&mut self.material_sources);
@@ -287,6 +286,7 @@ impl Graphics {
         false
     }
 
+    /// Entirely load mesh data into cpu memory
     pub fn load_mesh(&mut self, path: &str) -> Result<MeshDescriptor, Box<dyn std::error::Error>> {
         for (idx, mesh) in &self.meshes {
             if mesh.path == path {
@@ -303,6 +303,7 @@ impl Graphics {
         };
     }
 
+    // create a pipeline with a given fragment shader
     fn create_render_pipeline_for_shader(
         &self,
         device: &wgpu::Device,
@@ -319,6 +320,7 @@ impl Graphics {
         )
     }
 
+    // push buffers from a draw call into a stack
     pub fn draw(
         &self,
         device: &wgpu::Device,
@@ -357,45 +359,4 @@ impl Graphics {
 
         return true;
     }
-
-    // pub fn draw_instanced(&mut self, mesh : Mesh, instances: Vec<(Vec3, Quat)>) -> bool {
-    // if let Some(render_pass) = self.render_pass {
-    //     let index_count = mesh.faces.len();
-    //     let indices_bytes = indices_as_bytes_copy(&mesh.faces);
-    //     let vertices_bytes = vertices_as_bytes_copy(&mesh.vertices);
-    //     let uvs_bytes = vertices_as_bytes_copy(&mesh.uvs);
-    //     let normals_bytes = vertices_as_bytes_copy(&mesh.normals);
-    //
-    //     let index_buffer = self.device.create_buffer_init(&wgpu::BufferInitDescriptor {
-    //         label: None,
-    //         contents: &*indices_bytes,
-    //         usage: wgpu::BufferUsages::INDEX,
-    //     });
-    //     let vertex_buffer = self.device.create_buffer_init(&wgpu::BufferInitDescriptor {
-    //         label: None,
-    //         contents: &*vertices_bytes,
-    //         usage: wgpu::BufferUsages::VERTEX,
-    //     });
-    //     let uv_buffer = self.device.create_buffer_init(&wgpu::BufferInitDescriptor {
-    //         label: None,
-    //         contents: &*uvs_bytes,
-    //         usage: wgpu::BufferUsages::VERTEX,
-    //     });
-    //     let normal_buffer = self.device.create_buffer_init(&wgpu::BufferInitDescriptor {
-    //         label: None,
-    //         contents: &*normals_bytes,
-    //         usage: wgpu::BufferUsages::VERTEX,
-    //     });
-    //
-    //     render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-    //     render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-    //     render_pass.set_vertex_buffer(1, uv_buffer.slice(..));
-    //     render_pass.set_vertex_buffer(2, normal_buffer.slice(..));
-    //     render_pass.draw_indexed(0..index_count as u32, 0, 0..1);
-    //     true
-    // } else {
-    //     false
-    // }
-    //     false
-    // }
 }
