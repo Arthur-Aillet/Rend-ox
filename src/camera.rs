@@ -1,3 +1,5 @@
+
+
 use crate::Vec3 as Vector;
 
 pub struct Camera {

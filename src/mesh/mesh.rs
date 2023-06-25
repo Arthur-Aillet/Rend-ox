@@ -18,7 +18,7 @@ use glam::Mat4;
 /// A Bone used for animation
 /// Not fully implemented, format subject to change
 #[derive(Clone, Debug)]
-pub struct Bone {
+pub(crate) struct Bone {
     pub(crate) idx: u32,
     pub(crate) _pose: Mat4,
     // pub(crate) rest: Mat4,
@@ -103,6 +103,15 @@ impl Mesh {
     /// These buffers are prior to any transformation
     pub fn buffers(&self) -> (&Indices, &Vertices, &Vertices, &Normals) {
         (&self.faces, &self.vertices, &self.uvs, &self.normals)
+    }
+
+    /// Load an obj from a ASCII .smd file
+    /// This function will return an error on an unparsable file
+    ///
+    /// Not yet implemented, do not use
+    #[deprecated(since="0.0.0", note="smd files not yet supported, please use `from_obj` instead")]
+    pub fn from_smd(_file_name: &str) -> Result<Mesh, Box<dyn std::error::Error>> {
+        Err(Box::new(RendError::new("SMD Not Supported!")))
     }
 
     /// Load an obj from a ASCII .obj file
